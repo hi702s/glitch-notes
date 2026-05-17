@@ -618,7 +618,7 @@ header {
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-logo">
-    <span class="sp">SPTFY</span><span class="bl">_STATS</span>
+    <span class="sp">SPOTIFY</span><span class="bl">_STATS</span>
   </div>
   <div class="login-subtitle">// your music dashboard</div>
   <button class="login-btn" onclick="loginSpotify()">
@@ -637,7 +637,7 @@ header {
 <div id="dashboard">
   <header>
     <div class="logo">
-      <span class="sp">SPTFY</span><span class="bl">_STATS</span>
+      <span class="sp">SPOTIFY</span><span class="bl">_STATS</span>
     </div>
     <div class="header-right">
       <div class="user-info">
@@ -737,43 +737,103 @@ const SCOPES = [
   'user-read-private'
 ].join(' ');
 
-// ===== AUTH =====
-function loginSpotify() {
-  if (CLIENT_ID === 'YOUR_CLIENT_ID_HERE') {
-    alert('⚠️ Client IDを設定してください！\n\nREADMEを確認してください。');
-    return;
-  }
-  const state = Math.random().toString(36).slice(2);
-  sessionStorage.setItem('spotify_state', state);
+// ===== PKCE AUTH =====
+function base64URLEncode(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function generateCodeVerifier() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64URLEncode(array);
+}
+
+async function generateCodeChallenge(verifier) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64URLEncode(digest);
+}
+
+async function loginSpotify() {
+  const verifier = await generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  sessionStorage.setItem('pkce_verifier', verifier);
+
   const params = new URLSearchParams({
-    response_type: 'token',
+    response_type: 'code',
     client_id: CLIENT_ID,
     scope: SCOPES,
     redirect_uri: REDIRECT_URI,
-    state
+    code_challenge_method: 'S256',
+    code_challenge: challenge,
   });
   window.location.href = 'https://accounts.spotify.com/authorize?' + params;
 }
 
-function getToken() {
-  // URLハッシュからトークン取得
-  if (window.location.hash) {
-    const params = new URLSearchParams(window.location.hash.slice(1));
-    const token = params.get('access_token');
-    const expiresIn = params.get('expires_in');
-    if (token) {
-      const expiry = Date.now() + expiresIn * 1000;
-      localStorage.setItem('spotify_token', token);
-      localStorage.setItem('spotify_expiry', expiry);
-      window.history.replaceState({}, '', window.location.pathname);
-      return token;
-    }
+async function exchangeCode(code) {
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: REDIRECT_URI,
+      client_id: CLIENT_ID,
+      code_verifier: verifier,
+    })
+  });
+  const data = await res.json();
+  if (data.access_token) {
+    localStorage.setItem('spotify_token', data.access_token);
+    localStorage.setItem('spotify_expiry', Date.now() + data.expires_in * 1000);
+    if (data.refresh_token) localStorage.setItem('spotify_refresh', data.refresh_token);
+    sessionStorage.removeItem('pkce_verifier');
+    window.history.replaceState({}, '', window.location.pathname);
+    return data.access_token;
   }
-  // localStorageから
+  return null;
+}
+
+async function refreshToken() {
+  const refresh = localStorage.getItem('spotify_refresh');
+  if (!refresh) return null;
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refresh,
+      client_id: CLIENT_ID,
+    })
+  });
+  const data = await res.json();
+  if (data.access_token) {
+    localStorage.setItem('spotify_token', data.access_token);
+    localStorage.setItem('spotify_expiry', Date.now() + data.expires_in * 1000);
+    return data.access_token;
+  }
+  return null;
+}
+
+async function getToken() {
+  // 認証コードがURLにある場合
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  if (code) {
+    const token = await exchangeCode(code);
+    if (token) return token;
+  }
+
+  // 有効なトークンがある場合
   const token = localStorage.getItem('spotify_token');
   const expiry = localStorage.getItem('spotify_expiry');
-  if (token && expiry && Date.now() < parseInt(expiry)) return token;
-  return null;
+  if (token && expiry && Date.now() < parseInt(expiry) - 60000) return token;
+
+  // リフレッシュ
+  return await refreshToken();
 }
 
 function logout() {
@@ -784,7 +844,8 @@ function logout() {
 
 // ===== API =====
 async function spotifyFetch(endpoint) {
-  const token = getToken();
+  const token = await getToken();
+  if (!token) throw new Error('no token');
   const res = await fetch('https://api.spotify.com/v1' + endpoint, {
     headers: { Authorization: 'Bearer ' + token }
   });
@@ -797,7 +858,7 @@ let currentTimeRange = 'short_term';
 let npInterval = null;
 
 async function init() {
-  const token = getToken();
+  const token = await getToken();
   if (!token) {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('dashboard').style.display = 'none';
@@ -813,7 +874,6 @@ async function init() {
     loadNowPlaying()
   ]);
 
-  // 30秒ごとにNow Playingを更新
   npInterval = setInterval(loadNowPlaying, 30000);
 }
 
