@@ -469,7 +469,7 @@ async function loadRecentTracks() {
   try {
     const d=await api('/me/player/recently-played?limit=20');
     el.innerHTML=d.items.map((item,i)=>{
-      const t=item.track, cover=t.album.images[1]?.url||t.album.images[0]?.url||'';
+    const t=item.track, imgs=t.album?.images||[], cover=imgs[1]?.url||imgs[0]?.url||'';
       return `<div class="track-item" style="animation-delay:${i*0.03}s">
         <div class="track-num">${i+1}</div>
         <img class="track-cover" src="${cover}" alt="" loading="lazy">
@@ -493,7 +493,8 @@ function renderStats(tracks,artists) {
 
 function renderRankTracks(items) {
   document.getElementById('rank-tracks').innerHTML=items.map((t,i)=>{
-    const cover=t.album.images[2]?.url||t.album.images[0]?.url||'';
+    const imgs=t.album?.images||[];
+    const cover=imgs[2]?.url||imgs[0]?.url||'';
     return `<div class="rank-item" style="animation-delay:${i*0.04}s">
       <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
       <img class="rank-img" src="${cover}" alt="">
@@ -505,7 +506,8 @@ function renderRankTracks(items) {
 
 function renderRankArtists(items) {
   document.getElementById('rank-artists').innerHTML=items.map((a,i)=>{
-    const img=a.images[2]?.url||a.images[0]?.url||'';
+    const imgs=a.images||[];
+    const img=imgs[2]?.url||imgs[0]?.url||'';
     return `<div class="rank-item" style="animation-delay:${i*0.04}s">
       <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
       <img class="rank-img circle" src="${img}" alt="">
@@ -516,7 +518,8 @@ function renderRankArtists(items) {
 
 function renderRankAlbums(items) {
   document.getElementById('rank-albums').innerHTML=items.map((item,i)=>{
-    const cover=item.album.images[2]?.url||item.album.images[0]?.url||'';
+    const imgs=item.album?.images||[];
+    const cover=imgs[2]?.url||imgs[0]?.url||'';
     return `<div class="rank-item" style="animation-delay:${i*0.04}s">
       <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
       <img class="rank-img" src="${cover}" alt="">
