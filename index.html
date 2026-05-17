@@ -492,26 +492,28 @@ function renderStats(tracks,artists) {
 }
 
 function renderRankTracks(items) {
-  document.getElementById('rank-tracks').innerHTML=items.map((t,i)=>{
+  document.getElementById('rank-tracks').innerHTML=(items||[]).filter(t=>t).map((t,i)=>{
     const imgs=t.album?.images||[];
     const cover=imgs[2]?.url||imgs[0]?.url||'';
+    const artists=(t.artists||[]).map(a=>a?.name||'').join(', ');
     return `<div class="rank-item" style="animation-delay:${i*0.04}s">
       <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
       <img class="rank-img" src="${cover}" alt="">
-      <div class="rank-info"><div class="rank-name">${esc(t.name)}</div><div class="rank-sub">${esc(t.artists.map(a=>a.name).join(', '))}</div></div>
-      <div class="rank-tag">${fmtMs(t.duration_ms)}</div>
+      <div class="rank-info"><div class="rank-name">${esc(t.name||'')}</div><div class="rank-sub">${esc(artists)}</div></div>
+      <div class="rank-tag">${fmtMs(t.duration_ms||0)}</div>
     </div>`;
   }).join('');
 }
 
 function renderRankArtists(items) {
-  document.getElementById('rank-artists').innerHTML=items.map((a,i)=>{
+  document.getElementById('rank-artists').innerHTML=(items||[]).filter(a=>a).map((a,i)=>{
     const imgs=a.images||[];
     const img=imgs[2]?.url||imgs[0]?.url||'';
+    const genre=(a.genres||[])[0]||'';
     return `<div class="rank-item" style="animation-delay:${i*0.04}s">
       <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
       <img class="rank-img circle" src="${img}" alt="">
-      <div class="rank-info"><div class="rank-name">${esc(a.name)}</div><div class="rank-sub">${esc(a.genres[0]||'')}</div></div>
+      <div class="rank-info"><div class="rank-name">${esc(a.name||'')}</div><div class="rank-sub">${esc(genre)}</div></div>
     </div>`;
   }).join('');
 }
