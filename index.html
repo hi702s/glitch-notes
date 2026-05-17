@@ -636,8 +636,11 @@ async function loadAndSaveHistory() {
     const d = await api('/me/player/recently-played?limit=50');
     if (d?.items) await savePlayHistory(d.items);
     allHistory = await getPlayHistory();
-    drawPlaytimeFromHistory();
-    renderMonthlySummary();
+    // DOMが確実に描画されてから実行
+    setTimeout(() => {
+      drawPlaytimeFromHistory();
+      renderMonthlySummary();
+    }, 300);
   } catch(e) { console.error('history error:', e); }
 }
 
@@ -815,9 +818,14 @@ function showDayDetail(monthKey) {
 }
 
 function drawAreaChart(ctx, canvas, labels, vals, keys=null, isDetail=false) {
-  const W = canvas.parentElement.offsetWidth || 500;
+  // canvasのサイズを確実に取得
+  const parent = canvas.parentElement;
+  const W = parent ? Math.max(parent.clientWidth, parent.offsetWidth, 400) : 500;
   const H = 200;
-  canvas.width = W; canvas.height = H;
+  canvas.style.width = '100%';
+  canvas.style.height = H + 'px';
+  canvas.width = W;
+  canvas.height = H;
   ctx.clearRect(0,0,W,H);
 
   if (!labels.length) {
