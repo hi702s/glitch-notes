@@ -279,19 +279,13 @@ canvas { width: 100% !important; }
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">ジャンル割合</div>
-            <div class="card-badge" id="pie-period">直近4週</div>
+            <div class="card-title">今月のサマリー</div>
           </div>
           <div class="card-body">
-            <div class="pie-wrap">
-              <canvas id="pie-chart" width="120" height="120" style="width:120px;height:120px;flex-shrink:0"></canvas>
-              <div class="pie-legend" id="pie-legend"></div>
+            <div id="monthly-summary" style="display:flex;flex-direction:column;gap:12px">
+              <div class="loading">読み込み中...</div>
             </div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">ジャンル分布</div></div>
-          <div class="card-body"><div id="genre-bars"><div class="loading">読み込み中...</div></div></div>
         </div>
       </div>
     </div>
@@ -601,23 +595,32 @@ function renderRankGenres(gc) {
 async function loadPopularityRanking() {
   const el = document.getElementById('rank-genres');
   try {
-    const data = await api(`/me/top/tracks?limit=10&time_range=${timeRange}`);
-    const tracks = (data?.items || []).filter(t=>t);
-    const sorted = [...tracks].sort((a,b)=>(b.popularity||0)-(a.popularity||0));
-    el.innerHTML = sorted.map((t,i) => {
-      const imgs = t.album?.images || [];
-      const cover = imgs[2]?.url || imgs[0]?.url || '';
-      const pop = t.popularity || 0;
+    const data = await api(`/me/top/artists?limit=10&time_range=${timeRange}`);
+    const artists = (data?.items || []).filter(a=>a);
+    if (!artists.length) { el.innerHTML = '<div class="loading">データなし</div>'; return; }
+    // popularityが0の場合はフォロワー数で代替
+    const sorted = [...artists].sort((a,b)=>(b.followers?.total||0)-(a.followers?.total||0));
+    el.innerHTML = sorted.map((a,i) => {
+      const imgs = a.images || [];
+      const img = imgs[2]?.url || imgs[0]?.url || '';
+      const followers = a.followers?.total || 0;
+      const followersLabel = followers >= 1000000
+        ? `${(followers/1000000).toFixed(1)}M`
+        : followers >= 1000
+        ? `${(followers/1000).toFixed(1)}K`
+        : followers;
+      const maxFollowers = sorted[0]?.followers?.total || 1;
+      const pct = Math.round((followers/maxFollowers)*100);
       return `<div class="rank-item" style="animation-delay:${i*0.04}s">
         <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
-        <img class="rank-img" src="${cover}" alt="">
+        <img class="rank-img circle" src="${img}" alt="">
         <div class="rank-info">
-          <div class="rank-name">${esc(t.name||'')}</div>
+          <div class="rank-name">${esc(a.name||'')}</div>
           <div style="height:4px;background:var(--surface3);border-radius:2px;margin-top:6px;overflow:hidden">
-            <div style="height:100%;width:${pop}%;background:linear-gradient(to right,var(--spotify),var(--blue));border-radius:2px;transition:width 1s ease"></div>
+            <div style="height:100%;width:${pct}%;background:linear-gradient(to right,var(--spotify),var(--blue));border-radius:2px;transition:width 1s ease"></div>
           </div>
         </div>
-        <div class="rank-tag">${pop}</div>
+        <div class="rank-tag">${followersLabel}</div>
       </div>`;
     }).join('');
   } catch(e) { el.innerHTML = '<div class="error-msg">読み込みに失敗しました</div>'; }
@@ -634,7 +637,52 @@ async function loadAndSaveHistory() {
     if (d?.items) await savePlayHistory(d.items);
     allHistory = await getPlayHistory();
     drawPlaytimeFromHistory();
+    renderMonthlySummary();
   } catch(e) { console.error('history error:', e); }
+}
+
+function renderMonthlySummary() {
+  const el = document.getElementById('monthly-summary');
+  if (!el || !allHistory.length) { 
+    if (el) el.innerHTML = '<div style="font-size:12px;color:var(--text3)">データを蓄積中...</div>';
+    return; 
+  }
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}`;
+  const lastMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastMonthKey = `${lastMonth.getFullYear()}/${String(lastMonth.getMonth()+1).padStart(2,'0')}`;
+
+  const calcMs = key => allHistory
+    .filter(r => r.played_at.startsWith(key))
+    .reduce((s,r) => s + (parseInt(r.duration_ms)||0), 0);
+
+  const thisMs = calcMs(thisMonth);
+  const lastMs = calcMs(lastMonthKey);
+  const thisH = Math.round(thisMs/3600000*10)/10;
+  const lastH = Math.round(lastMs/3600000*10)/10;
+  const diff = Math.round((thisH-lastH)*10)/10;
+  const sign = diff >= 0 ? '+' : '';
+  const diffColor = diff >= 0 ? 'var(--spotify)' : '#FF6B6B';
+
+  const totalTracks = allHistory.filter(r => r.played_at.startsWith(thisMonth)).length;
+  const uniqueArtists = new Set(allHistory.filter(r => r.played_at.startsWith(thisMonth)).map(r => r.artist_name)).size;
+
+  el.innerHTML = `
+    <div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">今月の再生時間</div>
+    <div style="font-size:32px;font-weight:700;letter-spacing:-1px;background:linear-gradient(135deg,var(--spotify),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${thisH}h</div>
+    ${diff !== 0 || lastH > 0 ? `<div style="font-size:13px;font-weight:600;color:${diffColor};margin-top:4px">先月より ${sign}${diff}時間</div>` : ''}
+    <div style="height:1px;background:var(--border);margin:12px 0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:18px;font-weight:700;color:var(--spotify)">${totalTracks}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">再生曲数</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:18px;font-weight:700;color:var(--blue)">${uniqueArtists}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">アーティスト</div>
+      </div>
+    </div>
+  `;
 }
 
 function switchPlaytimeView(view, btn) {
