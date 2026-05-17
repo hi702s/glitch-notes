@@ -507,8 +507,10 @@ async function loadTopData() {
     if (artistIds) {
       try {
         const artData=await api(`/artists?ids=${artistIds}`);
-        enrichedArtists=(artData?.artists)||artists;
-      } catch(e) {}
+        if (artData?.artists) enrichedArtists=artData.artists.map((a,i)=>a||artists[i]);
+      } catch(e) {
+        console.log('artist enrichment skipped:', e.message);
+      }
     }
 
     const gc={};
