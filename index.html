@@ -336,6 +336,50 @@ const REDIRECT_URI = 'https://hi702s.github.io/glitch-notes';
 const SCOPES = ['user-read-recently-played','user-top-read','user-read-currently-playing','user-read-playback-state','user-read-private'].join(' ');
 const COLORS = ['#1DB954','#2D8EFF','#00C8FF','#FF6B6B','#FFD93D','#6BCB77','#845EC2','#FF9671','#00C9A7','#F9F871'];
 
+// ===== SUPABASE =====
+const SB_URL = 'https://kzhhxdockwwwhsffdifm.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6aGh4ZG9ja3d3d2hzZmZkaWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMzI1NDAsImV4cCI6MjA5NDYwODU0MH0.qlmtD7k3dX22gu1DUBjKnrzQZHIverLDebEYQqS_UXk';
+
+async function sbFetch(path, options={}) {
+  const res = await fetch(SB_URL + '/rest/v1' + path, {
+    ...options,
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+      ...(options.headers||{})
+    }
+  });
+  if (res.status === 204 || res.status === 201) return null;
+  if (!res.ok) { console.error('Supabase error:', res.status); return null; }
+  return res.json();
+}
+
+async function savePlayHistory(items) {
+  if (!items || items.length === 0) return;
+  const rows = items.map(item => ({
+    track_id: item.track.id,
+    track_name: item.track.name,
+    artist_name: item.track.artists.map(a=>a.name).join(', '),
+    album_name: item.track.album?.name || '',
+    played_at: item.played_at,
+    duration_ms: item.track.duration_ms
+  }));
+
+  // 重複を避けるためplayed_atでupsert
+  await sbFetch('/play_history?on_conflict=played_at,track_id', {
+    method: 'POST',
+    headers: { 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+    body: JSON.stringify(rows)
+  });
+}
+
+async function getPlayHistory() {
+  const data = await sbFetch('/play_history?select=*&order=played_at.desc&limit=1000');
+  return data || [];
+}
+
 function b64url(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,''); }
 
 async function loginSpotify() {
@@ -418,7 +462,9 @@ async function init() {
   if (!t) { document.getElementById('login-screen').style.display='flex'; document.getElementById('dashboard').style.display='none'; return; }
   document.getElementById('login-screen').style.display='none';
   document.getElementById('dashboard').style.display='flex';
-  await Promise.all([loadUser(), loadTopData(), loadRecentTracks(), loadNowPlaying(), loadPlaytimeChart(), loadGenreChange()]);
+  await Promise.all([loadUser(), loadTopData(), loadRecentTracks(), loadNowPlaying(), loadGenreChange()]);
+  // 再生履歴をSupabaseに保存してからグラフ描画
+  await loadAndSaveHistory();
   setInterval(loadNowPlaying, 30000);
 }
 
@@ -588,21 +634,81 @@ function renderPie(gc) {
   ).join('');
 }
 
-async function loadPlaytimeChart() {
-  const canvas=document.getElementById('playtime-chart');
-  const ctx=canvas.getContext('2d');
+async function loadAndSaveHistory() {
   try {
-    const d=await api('/me/player/recently-played?limit=50');
-    const mc={};
-    d.items.forEach(item=>{
-      const m=new Date(item.played_at).toLocaleDateString('ja',{month:'short'});
-      mc[m]=(mc[m]||0)+item.track.duration_ms/3600000;
+    // Spotifyから最新50曲取得
+    const d = await api('/me/player/recently-played?limit=50');
+    if (d?.items) await savePlayHistory(d.items);
+    // Supabaseから全履歴取得してグラフ描画
+    const history = await getPlayHistory();
+    drawPlaytimeFromHistory(history);
+  } catch(e) { console.error('history error:', e); }
+}
+
+function drawPlaytimeFromHistory(history) {
+  const canvas = document.getElementById('playtime-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // 月別集計
+  const monthData = {};
+  history.forEach(row => {
+    const d = new Date(row.played_at);
+    const key = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    const label = `${d.getMonth()+1}月`;
+    if (!monthData[key]) monthData[key] = { label, ms: 0 };
+    monthData[key].ms += row.duration_ms || 0;
+  });
+
+  const sorted = Object.entries(monthData).sort((a,b)=>a[0].localeCompare(b[0]));
+  const labels = sorted.map(([,v])=>v.label);
+  const vals = sorted.map(([,v])=>Math.round(v.ms/3600000*10)/10);
+
+  if (labels.length === 0) {
+    // データなし
+    labels.push('データなし');
+    vals.push(0);
+  }
+
+  // 先月比
+  if (vals.length >= 2) {
+    const cur = vals[vals.length-1];
+    const prev = vals[vals.length-2];
+    const diff = Math.round((cur-prev)*10)/10;
+    const sign = diff >= 0 ? '+' : '';
+    const msg = `先月より ${sign}${diff}時間`;
+    const color = diff >= 0 ? '#1DB954' : '#FF6B6B';
+    let el = document.getElementById('playtime-summary');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'playtime-summary';
+      el.style.cssText = 'font-size:13px;font-weight:600;margin-bottom:8px;';
+      canvas.parentElement.insertBefore(el, canvas);
+    }
+    el.style.color = color;
+    el.textContent = msg;
+  }
+
+  drawChart(ctx, canvas, labels, vals);
+}
+
+async function loadPlaytimeChart() {
+  // Supabase連携前のフォールバック
+  const canvas = document.getElementById('playtime-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  try {
+    const d = await api('/me/player/recently-played?limit=50');
+    const mc = {};
+    d.items.forEach(item => {
+      const m = new Date(item.played_at).toLocaleDateString('ja',{month:'short'});
+      mc[m] = (mc[m]||0) + item.track.duration_ms/3600000;
     });
-    const labels=Object.keys(mc);
-    const vals=labels.map(l=>Math.round(mc[l]*10)/10);
-    drawChart(ctx,canvas,labels,vals);
+    const labels = Object.keys(mc);
+    const vals = labels.map(l=>Math.round(mc[l]*10)/10);
+    drawChart(ctx, canvas, labels, vals);
   } catch(e) {
-    drawChart(ctx,canvas,['1月','2月','3月','4月','5月','6月'],[8,15,12,20,17,23]);
+    drawChart(ctx, canvas, ['1月','2月','3月','4月','5月','6月'],[8,15,12,20,17,23]);
   }
 }
 
