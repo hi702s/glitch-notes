@@ -449,14 +449,27 @@ async function loadTopData() {
     ]);
     const tracks=(tr?.items)||[];
     const artists=(ar?.items)||[];
+
+    // アーティストIDで個別取得してジャンルを得る
+    const artistIds=artists.filter(a=>a?.id).map(a=>a.id).join(',');
+    let enrichedArtists=artists;
+    if (artistIds) {
+      try {
+        const artData=await api(`/artists?ids=${artistIds}`);
+        enrichedArtists=(artData?.artists)||artists;
+      } catch(e) {}
+    }
+
     const gc={};
-    artists.forEach(a=>(a.genres||[]).forEach(g=>{gc[g]=(gc[g]||0)+1;}));
+    enrichedArtists.forEach(a=>(a?.genres||[]).forEach(g=>{gc[g]=(gc[g]||0)+1;}));
+
     const albumMap={};
     tracks.forEach(t=>{ if(!t?.album?.id) return; if(!albumMap[t.album.id]) albumMap[t.album.id]={album:t.album,artists:t.artists,count:0}; albumMap[t.album.id].count++; });
     const albums=Object.values(albumMap).sort((a,b)=>b.count-a.count).slice(0,10);
-    renderStats(tracks,artists);
+
+    renderStats(tracks,enrichedArtists);
     renderRankTracks(tracks);
-    renderRankArtists(artists);
+    renderRankArtists(enrichedArtists);
     renderRankAlbums(albums);
     renderRankGenres(gc);
     renderGenreBars(gc);
