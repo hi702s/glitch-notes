@@ -419,21 +419,25 @@ async function loadNowPlaying() {
 
 async function loadTopData() {
   try {
-    const [tr,ar]=await Promise.all([api(`/me/top/tracks?limit=10&time_range=${timeRange}`),api(`/me/top/artists?limit=10&time_range=${timeRange}`)]);
+    const [tr,ar]=await Promise.all([
+      api(`/me/top/tracks?limit=10&time_range=${timeRange}`),
+      api(`/me/top/artists?limit=10&time_range=${timeRange}`)
+    ]);
+    const tracks=(tr?.items)||[];
+    const artists=(ar?.items)||[];
     const gc={};
-    ar.items.forEach(a=>a.genres.forEach(g=>{gc[g]=(gc[g]||0)+1;}));
+    artists.forEach(a=>(a.genres||[]).forEach(g=>{gc[g]=(gc[g]||0)+1;}));
     const albumMap={};
-    tr.items.forEach(t=>{ if(!albumMap[t.album.id]) albumMap[t.album.id]={album:t.album,artists:t.artists,count:0}; albumMap[t.album.id].count++; });
+    tracks.forEach(t=>{ if(!t?.album?.id) return; if(!albumMap[t.album.id]) albumMap[t.album.id]={album:t.album,artists:t.artists,count:0}; albumMap[t.album.id].count++; });
     const albums=Object.values(albumMap).sort((a,b)=>b.count-a.count).slice(0,10);
-
-    renderStats(tr.items,ar.items);
-    renderRankTracks(tr.items);
-    renderRankArtists(ar.items);
+    renderStats(tracks,artists);
+    renderRankTracks(tracks);
+    renderRankArtists(artists);
     renderRankAlbums(albums);
     renderRankGenres(gc);
     renderGenreBars(gc);
     renderPie(gc);
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error('loadTopData error:',e); }
 }
 
 async function loadRecentTracks() {
