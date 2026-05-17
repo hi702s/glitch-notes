@@ -455,7 +455,7 @@ async function init() {
   if (!t) { document.getElementById('login-screen').style.display='flex'; document.getElementById('dashboard').style.display='none'; return; }
   document.getElementById('login-screen').style.display='none';
   document.getElementById('dashboard').style.display='flex';
-  await Promise.all([loadUser(), loadTopData(), loadRecentTracks(), loadNowPlaying(), loadGenreChange()]);
+  await Promise.all([loadUser(), loadTopData(), loadRecentTracks(), loadNowPlaying()]);
   // 再生履歴をSupabaseに保存してからグラフ描画
   await loadAndSaveHistory();
   setInterval(loadNowPlaying, 30000);
@@ -513,8 +513,7 @@ async function loadTopData() {
     renderRankArtists(enrichedArtists);
     renderRankAlbums(albums);
     renderRankGenres(gc);
-    renderGenreBars(gc);
-    renderPie(gc);
+    loadPopularityRanking();
   } catch(e) { console.error('loadTopData error:',e); }
 }
 
@@ -935,35 +934,10 @@ function drawAreaChart(ctx, canvas, labels, vals, keys=null, isDetail=false) {
   }
 }
 
-function renderGenreBars(gc) {
-  const sorted=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const max=sorted[0]?.[1]||1, total=Object.values(gc).reduce((s,v)=>s+v,0);
-  document.getElementById('genre-bars').innerHTML=sorted.map(([g,c],i)=>`
-    <div class="genre-row">
-      <div class="genre-name">${esc(g)}</div>
-      <div class="genre-bar-wrap"><div class="genre-bar" style="width:${Math.round((c/max)*100)}%;background:linear-gradient(to right,${COLORS[i%10]},${COLORS[(i+1)%10]})"></div></div>
-      <div class="genre-pct">${Math.round((c/total)*100)}%</div>
-    </div>`).join('');
-}
+function renderGenreBars(gc) {} // 削除済み（呼び出し箇所のため空関数として残す）
+function renderPie(gc) {} // 削除済み
 
-function renderPie(gc) {
-  const sorted=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const total=sorted.reduce((s,[,v])=>s+v,0)||1;
-  const canvas=document.getElementById('pie-chart');
-  const ctx=canvas.getContext('2d');
-  const cx=60,cy=60,r=52,inner=28;
-  ctx.clearRect(0,0,120,120);
-  let angle=-Math.PI/2;
-  sorted.forEach(([,c],i)=>{
-    const slice=(c/total)*Math.PI*2;
-    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+slice); ctx.closePath();
-    ctx.fillStyle=COLORS[i%10]; ctx.fill(); angle+=slice;
-  });
-  ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fillStyle='#141414'; ctx.fill();
-  document.getElementById('pie-legend').innerHTML=sorted.slice(0,5).map(([g,c],i)=>
-    `<div class="pie-legend-item"><div class="pie-dot" style="background:${COLORS[i%10]}"></div><span>${esc(g)} <span style="color:var(--text3)">${Math.round((c/total)*100)}%</span></span></div>`
-  ).join('');
-}
+async function loadGenreChange() {} // 削除済み
 
 function switchRankTab(tab,btn) {
   document.querySelectorAll('.rank-tab').forEach(b=>b.classList.remove('active'));
@@ -976,8 +950,6 @@ async function setTimeRange(range,btn) {
   document.querySelectorAll('.time-tabs .time-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   timeRange=range;
-  const labels={short_term:'直近4週',medium_term:'6ヶ月',long_term:'全期間'};
-  document.getElementById('pie-period').textContent=labels[range];
   await loadTopData();
 }
 
