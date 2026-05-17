@@ -368,15 +368,39 @@ function save(d) {
   if (d.refresh_token) localStorage.setItem('sp_rf', d.refresh_token);
 }
 
+// トークンを一度だけ取得してキャッシュ
+let _tokenPromise = null;
+let _cachedToken = null;
+
 async function getToken() {
-  const code = new URLSearchParams(window.location.search).get('code');
-  if (code) return await exchangeCode(code);
+  // キャッシュ済みで有効なら即返す
+  if (_cachedToken) return _cachedToken;
   const t = localStorage.getItem('sp_tk'), exp = localStorage.getItem('sp_exp');
-  if (t && exp && Date.now() < parseInt(exp) - 60000) return t;
-  return await doRefresh();
+  if (t && exp && Date.now() < parseInt(exp) - 60000) { _cachedToken = t; return t; }
+  // 同時呼び出し防止
+  if (_tokenPromise) return _tokenPromise;
+  _tokenPromise = _fetchToken().finally(() => { _tokenPromise = null; });
+  return _tokenPromise;
 }
 
-function logout() { ['sp_tk','sp_exp','sp_rf'].forEach(k=>localStorage.removeItem(k)); location.reload(); }
+async function _fetchToken() {
+  const code = new URLSearchParams(window.location.search).get('code');
+  if (code) {
+    // URLからcodeを即座に消す
+    window.history.replaceState({}, '', window.location.pathname);
+    const t = await exchangeCode(code);
+    if (t) { _cachedToken = t; return t; }
+  }
+  const t = await doRefresh();
+  if (t) { _cachedToken = t; }
+  return t;
+}
+
+function logout() {
+  _cachedToken = null;
+  ['sp_tk','sp_exp','sp_rf'].forEach(k=>localStorage.removeItem(k));
+  location.reload();
+}
 
 async function api(ep) {
   const t = await getToken();
