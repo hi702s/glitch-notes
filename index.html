@@ -364,15 +364,20 @@ async function savePlayHistory(items) {
     artist_name: item.track.artists.map(a=>a.name).join(', '),
     album_name: item.track.album?.name || '',
     played_at: item.played_at,
-    duration_ms: item.track.duration_ms
+    duration_ms: String(item.track.duration_ms)
   }));
 
-  // 重複を避けるためplayed_atでupsert
-  await sbFetch('/play_history?on_conflict=played_at,track_id', {
+  const res = await fetch(SB_URL + '/rest/v1/play_history', {
     method: 'POST',
-    headers: { 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=ignore-duplicates,return=minimal'
+    },
     body: JSON.stringify(rows)
   });
+  if (!res.ok) console.error('Supabase save error:', res.status);
 }
 
 async function getPlayHistory() {
