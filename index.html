@@ -3,23 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SPOTIFY_STATS // your music dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<title>SPOTIFY STATS</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #060608;
-  --surface: #0e0e14;
-  --surface2: #141420;
-  --border: #1e1e30;
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface2: #1c1c1c;
+  --surface3: #242424;
+  --border: #2a2a2a;
   --spotify: #1DB954;
-  --spotify-dim: rgba(29,185,84,0.15);
-  --blue: #1E90FF;
-  --blue-dim: rgba(30,144,255,0.15);
-  --cyan: #00f0ff;
-  --text: #e8f0e8;
-  --muted: #556655;
-  --font-mono: 'Share Tech Mono', monospace;
-  --font-main: 'Syne', sans-serif;
+  --blue: #2D8EFF;
+  --cyan: #00C8FF;
+  --text: #ffffff;
+  --text2: #b3b3b3;
+  --text3: #6a6a6a;
+  --font: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -27,1067 +27,635 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-main);
+  font-family: var(--font);
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-body::before {
-  content:'';
-  position:fixed;
-  inset:0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
-  pointer-events:none;
-  z-index:1000;
-}
-
-/* BG glow */
-body::after {
-  content:'';
-  position:fixed;
-  inset:0;
-  background:
-    radial-gradient(ellipse 600px 400px at 10% 20%, rgba(29,185,84,0.04) 0%, transparent 70%),
-    radial-gradient(ellipse 500px 500px at 90% 80%, rgba(30,144,255,0.04) 0%, transparent 70%);
-  pointer-events:none;
-  z-index:0;
-}
-
-/* ===== LOGIN SCREEN ===== */
+/* ===== LOGIN ===== */
 #login-screen {
-  position:fixed;
-  inset:0;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  z-index:500;
-  background: var(--bg);
-  gap:32px;
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg); z-index: 500; gap: 28px;
 }
 
-.login-logo {
-  font-family: var(--font-mono);
-  font-size:28px;
-  letter-spacing:6px;
-  text-align:center;
-}
-
-.login-logo .sp { color: var(--spotify); text-shadow: 0 0 30px var(--spotify); }
-.login-logo .bl { color: var(--blue); text-shadow: 0 0 30px var(--blue); }
-
-.login-subtitle {
-  font-family: var(--font-mono);
-  font-size:11px;
-  letter-spacing:4px;
-  color: var(--muted);
-  text-align:center;
-  text-transform:uppercase;
-}
+.login-logo { font-size: 36px; font-weight: 700; letter-spacing: -1px; }
+.login-logo .sp { color: var(--spotify); }
+.login-logo .bl { color: var(--blue); }
+.login-sub { font-size: 14px; color: var(--text3); }
 
 .login-btn {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  background: var(--spotify);
-  color: #000;
-  font-family: var(--font-mono);
-  font-size:13px;
-  letter-spacing:3px;
-  padding:14px 32px;
-  border:none;
-  cursor:pointer;
-  text-transform:uppercase;
-  font-weight:bold;
-  transition: all 0.2s;
-  clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--spotify); color: #000;
+  font-family: var(--font); font-size: 14px; font-weight: 700;
+  padding: 14px 36px; border: none; border-radius: 500px;
+  cursor: pointer; transition: all 0.2s;
 }
+.login-btn:hover { transform: scale(1.04); background: #1ed760; }
+.login-btn svg { width: 20px; height: 20px; }
 
-.login-btn:hover {
-  transform:scale(1.05);
-  box-shadow: 0 0 40px rgba(29,185,84,0.5);
-}
+/* ===== DASHBOARD ===== */
+#dashboard { display: none; flex-direction: column; min-height: 100vh; }
 
-.login-btn svg { width:20px; height:20px; }
-
-.login-note {
-  font-family: var(--font-mono);
-  font-size:10px;
-  color: var(--muted);
-  letter-spacing:2px;
-  text-align:center;
-  line-height:1.8;
-}
-
-/* ===== MAIN DASHBOARD ===== */
-#dashboard {
-  display:none;
-  flex-direction:column;
-  min-height:100vh;
-  position:relative;
-  z-index:1;
-}
-
-/* HEADER */
 header {
-  padding:20px 28px;
-  border-bottom:1px solid var(--border);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  background: rgba(14,14,20,0.8);
-  backdrop-filter: blur(10px);
-  position:sticky;
-  top:0;
-  z-index:100;
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
 }
 
-.logo {
-  font-family: var(--font-mono);
-  font-size:18px;
-  letter-spacing:4px;
-}
+.logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+.logo .sp { color: var(--spotify); }
+.logo .bl { color: var(--blue); }
 
-.logo .sp { color: var(--spotify); text-shadow: 0 0 15px var(--spotify); }
-.logo .bl { color: var(--blue); text-shadow: 0 0 15px var(--blue); }
+.header-right { display: flex; align-items: center; gap: 14px; }
 
-.header-right {
-  display:flex;
-  align-items:center;
-  gap:16px;
+.user-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 500px; padding: 5px 14px 5px 5px;
 }
-
-.user-info {
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.user-avatar {
-  width:32px; height:32px;
-  border-radius:50%;
-  border:2px solid var(--spotify);
-  object-fit:cover;
-  background: var(--surface2);
-}
-
-.user-name {
-  font-family: var(--font-mono);
-  font-size:12px;
-  color: var(--spotify);
-}
+.user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; background: var(--surface3); }
+.user-name { font-size: 13px; font-weight: 500; color: var(--text2); }
 
 .btn-logout {
-  font-family: var(--font-mono);
-  font-size:10px;
-  letter-spacing:2px;
-  color: var(--muted);
-  background: none;
-  border:1px solid var(--border);
-  padding:5px 10px;
-  cursor:pointer;
-  text-transform:uppercase;
-  transition:all 0.15s;
+  font-family: var(--font); font-size: 12px; font-weight: 500;
+  color: var(--text3); background: none;
+  border: 1px solid var(--border); border-radius: 500px;
+  padding: 6px 14px; cursor: pointer; transition: all 0.15s;
 }
+.btn-logout:hover { color: var(--text); border-color: var(--text3); }
 
-.btn-logout:hover { border-color: var(--muted); color: var(--text); }
-
-/* NOW PLAYING BANNER */
+/* NOW PLAYING */
 #now-playing-bar {
-  padding:12px 28px;
-  background: linear-gradient(135deg, rgba(29,185,84,0.08), rgba(30,144,255,0.08));
-  border-bottom:1px solid var(--border);
-  display:none;
-  align-items:center;
-  gap:16px;
+  background: linear-gradient(135deg, rgba(29,185,84,0.1), rgba(45,142,255,0.1));
+  border-bottom: 1px solid var(--border);
+  padding: 12px 32px; display: none;
+  align-items: center; gap: 16px;
 }
 
-.np-label {
-  font-family: var(--font-mono);
-  font-size:9px;
-  letter-spacing:3px;
-  color: var(--spotify);
-  text-transform:uppercase;
-  white-space:nowrap;
-  display:flex;
-  align-items:center;
-  gap:6px;
+.np-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--spotify); white-space: nowrap;
 }
-
 .np-dot {
-  width:6px; height:6px;
-  border-radius:50%;
-  background: var(--spotify);
-  animation: blink 1.5s ease-in-out infinite;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--spotify); animation: blink 1.5s ease infinite;
 }
-
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
-.np-cover {
-  width:36px; height:36px;
-  object-fit:cover;
-  border:1px solid var(--spotify);
-  flex-shrink:0;
-}
+.np-cover { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+.np-info { flex: 1; min-width: 0; }
+.np-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-artist { font-size: 12px; color: var(--text2); }
+.np-progress-wrap { flex: 1; max-width: 240px; }
+.np-progress { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
+.np-progress-fill { height: 100%; background: linear-gradient(to right, var(--spotify), var(--cyan)); border-radius: 2px; transition: width 1s linear; }
+.np-time { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
 
-.np-info { flex:1; min-width:0; }
+/* MAIN */
+.main-content { padding: 32px; display: flex; flex-direction: column; gap: 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
 
-.np-title {
-  font-family: var(--font-mono);
-  font-size:13px;
-  color: var(--text);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
+.time-range-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
 
-.np-artist {
-  font-family: var(--font-mono);
-  font-size:10px;
-  color: var(--muted);
-}
-
-.np-progress-wrap {
-  flex:1;
-  max-width:200px;
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-}
-
-.np-progress {
-  height:2px;
-  background: var(--border);
-  border-radius:1px;
-  overflow:hidden;
-}
-
-.np-progress-fill {
-  height:100%;
-  background: linear-gradient(to right, var(--spotify), var(--cyan));
-  border-radius:1px;
-  transition: width 1s linear;
-}
-
-.np-time {
-  font-family: var(--font-mono);
-  font-size:9px;
-  color: var(--muted);
-  display:flex;
-  justify-content:space-between;
-}
-
-/* MAIN GRID */
-.dashboard-grid {
-  padding:24px 28px;
-  display:grid;
-  grid-template-columns: 1fr 340px;
-  gap:20px;
-}
-
-/* RECENT TRACKS (main) */
-.recent-tracks {
-  display:flex;
-  flex-direction:column;
-  gap:16px;
-}
-
-.section-header {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-}
-
-.section-title {
-  font-family: var(--font-mono);
-  font-size:11px;
-  letter-spacing:3px;
-  color: var(--muted);
-  text-transform:uppercase;
-}
-
-.section-title .accent { color: var(--blue); }
-
-.track-list {
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-}
-
-.track-item {
-  display:grid;
-  grid-template-columns: 28px 48px 1fr auto;
-  align-items:center;
-  gap:14px;
-  padding:10px 14px;
-  background: var(--surface);
-  border:1px solid var(--border);
-  border-radius:2px;
-  transition: all 0.15s;
-  animation: slideIn 0.3s ease both;
-}
-
-@keyframes slideIn {
-  from { opacity:0; transform:translateX(-10px); }
-  to { opacity:1; transform:none; }
-}
-
-.track-item:hover {
-  border-color: rgba(29,185,84,0.3);
-  background: rgba(29,185,84,0.04);
-}
-
-.track-num {
-  font-family: var(--font-mono);
-  font-size:11px;
-  color: var(--muted);
-  text-align:center;
-}
-
-.track-cover {
-  width:48px; height:48px;
-  object-fit:cover;
-  background: var(--surface2);
-  border:1px solid var(--border);
-}
-
-.track-info { min-width:0; }
-
-.track-name {
-  font-family: var(--font-mono);
-  font-size:13px;
-  color: var(--text);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  margin-bottom:3px;
-}
-
-.track-meta {
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-
-.track-artist {
-  font-family: var(--font-mono);
-  font-size:10px;
-  color: var(--muted);
-}
-
-.genre-tag {
-  font-family: var(--font-mono);
-  font-size:9px;
-  padding:1px 6px;
-  border:1px solid rgba(30,144,255,0.3);
-  color: var(--blue);
-  background: rgba(30,144,255,0.07);
-  white-space:nowrap;
-}
-
-.track-time {
-  font-family: var(--font-mono);
-  font-size:10px;
-  color: var(--muted);
-  white-space:nowrap;
-}
-
-/* SIDEBAR */
-.sidebar {
-  display:flex;
-  flex-direction:column;
-  gap:16px;
-}
-
-/* PANEL */
-.panel {
-  background: var(--surface);
-  border:1px solid var(--border);
-  border-radius:2px;
-  overflow:hidden;
-}
-
-.panel-header {
-  padding:10px 16px;
-  border-bottom:1px solid var(--border);
-  background: var(--surface2);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-}
-
-.panel-title {
-  font-family: var(--font-mono);
-  font-size:10px;
-  letter-spacing:3px;
-  color: var(--muted);
-  text-transform:uppercase;
-}
-
-.panel-body { padding:16px; }
-
-/* GENRE CHART */
-.genre-chart { display:flex; flex-direction:column; gap:8px; }
-
-.genre-row {
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.genre-name {
-  font-family: var(--font-mono);
-  font-size:10px;
-  color: var(--text);
-  width:80px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  flex-shrink:0;
-}
-
-.genre-bar-wrap {
-  flex:1;
-  height:6px;
-  background: var(--border);
-  border-radius:3px;
-  overflow:hidden;
-}
-
-.genre-bar {
-  height:100%;
-  border-radius:3px;
-  transition: width 1s ease;
-}
-
-.genre-pct {
-  font-family: var(--font-mono);
-  font-size:10px;
-  color: var(--muted);
-  width:30px;
-  text-align:right;
-  flex-shrink:0;
-}
-
-/* TOP ARTISTS */
-.artist-list { display:flex; flex-direction:column; gap:8px; }
-
-.artist-item {
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:8px 10px;
-  background: var(--surface2);
-  border:1px solid var(--border);
-  transition: all 0.15s;
-}
-
-.artist-item:hover { border-color: rgba(29,185,84,0.3); }
-
-.artist-rank {
-  font-family: var(--font-mono);
-  font-size:11px;
-  color: var(--muted);
-  width:16px;
-  text-align:center;
-  flex-shrink:0;
-}
-
-.artist-img {
-  width:36px; height:36px;
-  border-radius:50%;
-  object-fit:cover;
-  background: var(--surface);
-  border:1px solid var(--border);
-  flex-shrink:0;
-}
-
-.artist-info { flex:1; min-width:0; }
-
-.artist-name {
-  font-family: var(--font-mono);
-  font-size:12px;
-  color: var(--text);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.artist-genre {
-  font-family: var(--font-mono);
-  font-size:9px;
-  color: var(--muted);
-}
+.time-tabs { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 500px; padding: 3px; gap: 2px; }
+.time-tab { font-family: var(--font); font-size: 12px; font-weight: 600; padding: 6px 16px; border: none; border-radius: 500px; background: none; color: var(--text3); cursor: pointer; transition: all 0.2s; }
+.time-tab.active { background: var(--spotify); color: #000; }
 
 /* STATS */
-.stats-grid {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:8px;
-}
+.stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.stat-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+.stat-val { font-size: 28px; font-weight: 700; letter-spacing: -1px; background: linear-gradient(135deg, var(--spotify), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
-.stat-card {
-  background: var(--surface2);
-  border:1px solid var(--border);
-  padding:12px;
-  text-align:center;
-}
+/* GRID */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-main { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
 
-.stat-val {
-  font-family: var(--font-mono);
-  font-size:22px;
-  font-weight:bold;
-  background: linear-gradient(135deg, var(--spotify), var(--blue));
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-clip:text;
-  line-height:1;
-  margin-bottom:4px;
-}
+/* CARD */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.card-header { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.card-title { font-size: 14px; font-weight: 700; }
+.card-badge { font-size: 10px; font-weight: 600; color: var(--spotify); background: rgba(29,185,84,0.12); padding: 3px 10px; border-radius: 500px; }
+.card-body { padding: 16px 20px; }
 
-.stat-label {
-  font-family: var(--font-mono);
-  font-size:9px;
-  letter-spacing:2px;
-  color: var(--muted);
-  text-transform:uppercase;
-}
+/* RANK TABS */
+.rank-tabs-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.rank-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.rank-tab { flex: 1; font-family: var(--font); font-size: 12px; font-weight: 600; padding: 13px 8px; border: none; background: none; color: var(--text3); cursor: pointer; transition: all 0.15s; border-bottom: 2px solid transparent; text-align: center; }
+.rank-tab.active { color: var(--spotify); border-bottom-color: var(--spotify); background: rgba(29,185,84,0.05); }
+.rank-content { display: none; padding: 10px 14px; max-height: 520px; overflow-y: auto; }
+.rank-content::-webkit-scrollbar { width: 4px; }
+.rank-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.rank-content.active { display: block; }
 
-/* LOADING */
-.loading {
-  font-family: var(--font-mono);
-  font-size:11px;
-  color: var(--muted);
-  letter-spacing:2px;
-  text-align:center;
-  padding:20px;
-  animation: pulse 1.5s ease-in-out infinite;
-}
+/* RANK ITEM */
+.rank-item { display: flex; align-items: center; gap: 12px; padding: 9px 6px; border-radius: 8px; transition: background 0.15s; animation: fadeUp 0.3s ease both; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.rank-item:hover { background: var(--surface2); }
+.rank-num { font-family: var(--font-mono); font-size: 12px; color: var(--text3); width: 18px; text-align: center; flex-shrink: 0; }
+.rank-num.top3 { color: var(--spotify); font-weight: 700; }
+.rank-img { width: 42px; height: 42px; border-radius: 6px; object-fit: cover; background: var(--surface3); flex-shrink: 0; }
+.rank-img.circle { border-radius: 50%; }
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.rank-sub { font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-tag { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 500px; background: rgba(45,142,255,0.12); color: var(--blue); white-space: nowrap; flex-shrink: 0; }
 
-@keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+/* GENRE BARS */
+.genre-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+.genre-name { font-size: 11px; font-weight: 500; color: var(--text2); width: 90px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.genre-bar-wrap { flex: 1; height: 6px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+.genre-bar { height: 100%; border-radius: 3px; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+.genre-pct { font-family: var(--font-mono); font-size: 11px; color: var(--text3); width: 30px; text-align: right; flex-shrink: 0; }
 
-/* TIME FILTER */
-.time-filter {
-  display:flex;
-  gap:4px;
-}
+/* PIE */
+.pie-wrap { display: flex; gap: 16px; align-items: center; }
+.pie-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.pie-legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); }
+.pie-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-.tf-btn {
-  font-family: var(--font-mono);
-  font-size:9px;
-  letter-spacing:1px;
-  padding:3px 8px;
-  border:1px solid var(--border);
-  background:none;
-  color: var(--muted);
-  cursor:pointer;
-  text-transform:uppercase;
-  transition:all 0.15s;
-}
+/* TRACK */
+.track-item { display: grid; grid-template-columns: 20px 42px 1fr auto; align-items: center; gap: 12px; padding: 8px 6px; border-radius: 8px; transition: background 0.15s; animation: fadeUp 0.3s ease both; }
+.track-item:hover { background: var(--surface2); }
+.track-num { font-family: var(--font-mono); font-size: 11px; color: var(--text3); text-align: center; }
+.track-cover { width: 42px; height: 42px; border-radius: 4px; object-fit: cover; background: var(--surface3); }
+.track-info { min-width: 0; }
+.track-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.track-artist { font-size: 11px; color: var(--text2); }
+.track-time { font-family: var(--font-mono); font-size: 11px; color: var(--text3); }
 
-.tf-btn.active {
-  border-color: var(--spotify);
-  color: var(--spotify);
-  background: rgba(29,185,84,0.1);
-}
+/* CHART */
+.chart-wrap { position: relative; height: 170px; }
+canvas { width: 100% !important; }
 
-/* ERROR */
-.error-msg {
-  font-family: var(--font-mono);
-  font-size:11px;
-  color: #ff4466;
-  letter-spacing:1px;
-  text-align:center;
-  padding:12px;
-}
+.chart-type-btns { display: flex; gap: 4px; }
+.ct-btn { font-family: var(--font); font-size: 11px; font-weight: 600; padding: 4px 12px; border: 1px solid var(--border); border-radius: 500px; background: none; color: var(--text3); cursor: pointer; transition: all 0.15s; }
+.ct-btn.active { background: var(--surface2); color: var(--text); border-color: var(--text3); }
 
-@media (max-width:768px) {
-  .dashboard-grid {
-    grid-template-columns:1fr;
-    padding:16px;
-  }
-  .track-item {
-    grid-template-columns:24px 40px 1fr auto;
-    gap:10px;
-  }
+.loading { padding: 24px; text-align: center; font-size: 12px; color: var(--text3); }
+.error-msg { padding: 16px; text-align: center; font-size: 12px; color: #ff4466; }
+
+@media(max-width:768px){
+  .main-content{padding:16px;}
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .grid-2,.grid-main{grid-template-columns:1fr;}
+  header{padding:0 16px;}
+  #now-playing-bar{padding:10px 16px;}
 }
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
 <div id="login-screen">
-  <div class="login-logo">
-    <span class="sp">SPOTIFY</span><span class="bl">_STATS</span>
-  </div>
-  <div class="login-subtitle">// your music dashboard</div>
+  <div class="login-logo"><span class="sp">SPOTIFY</span><span class="bl">_STATS</span></div>
+  <div class="login-sub">あなたの音楽をデータで見る</div>
   <button class="login-btn" onclick="loginSpotify()">
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-    </svg>
-    SPOTIFYでログイン
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+    Spotifyでログイン
   </button>
-  <div class="login-note">
-    Spotifyアカウントで認証します<br>
-    データは外部に送信されません
-  </div>
 </div>
 
-<!-- DASHBOARD -->
 <div id="dashboard">
   <header>
-    <div class="logo">
-      <span class="sp">SPOTIFY</span><span class="bl">_STATS</span>
-    </div>
+    <div class="logo"><span class="sp">SPOTIFY</span><span class="bl">_STATS</span></div>
     <div class="header-right">
-      <div class="user-info">
+      <div class="user-pill">
         <img class="user-avatar" id="user-avatar" src="" alt="">
         <span class="user-name" id="user-name"></span>
       </div>
-      <button class="btn-logout" onclick="logout()">LOGOUT</button>
+      <button class="btn-logout" onclick="logout()">ログアウト</button>
     </div>
   </header>
 
-  <!-- NOW PLAYING -->
   <div id="now-playing-bar">
-    <div class="np-label"><div class="np-dot"></div>NOW PLAYING</div>
+    <div class="np-badge"><div class="np-dot"></div>NOW PLAYING</div>
     <img class="np-cover" id="np-cover" src="" alt="">
     <div class="np-info">
       <div class="np-title" id="np-title"></div>
       <div class="np-artist" id="np-artist"></div>
     </div>
     <div class="np-progress-wrap">
-      <div class="np-progress">
-        <div class="np-progress-fill" id="np-progress" style="width:0%"></div>
-      </div>
-      <div class="np-time">
-        <span id="np-current">0:00</span>
-        <span id="np-total">0:00</span>
-      </div>
+      <div class="np-progress"><div class="np-progress-fill" id="np-progress" style="width:0%"></div></div>
+      <div class="np-time"><span id="np-current">0:00</span><span id="np-total">0:00</span></div>
     </div>
   </div>
 
-  <div class="dashboard-grid">
-    <!-- RECENT TRACKS -->
-    <div class="recent-tracks">
-      <div class="section-header">
-        <div class="section-title">// RECENT <span class="accent">TRACKS</span></div>
-        <div class="time-filter">
-          <button class="tf-btn active" onclick="setTimeRange('short_term', this)">4週</button>
-          <button class="tf-btn" onclick="setTimeRange('medium_term', this)">6ヶ月</button>
-          <button class="tf-btn" onclick="setTimeRange('long_term', this)">全期間</button>
-        </div>
-      </div>
-      <div class="track-list" id="track-list">
-        <div class="loading">// LOADING TRACKS...</div>
+  <div class="main-content">
+
+    <div class="time-range-bar">
+      <div class="page-title">あなたの音楽</div>
+      <div class="time-tabs">
+        <button class="time-tab active" onclick="setTimeRange('short_term',this)">直近4週</button>
+        <button class="time-tab" onclick="setTimeRange('medium_term',this)">6ヶ月</button>
+        <button class="time-tab" onclick="setTimeRange('long_term',this)">全期間</button>
       </div>
     </div>
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-      <!-- STATS -->
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">// stats</div>
+    <div class="stats-row" id="stats-row"><div class="loading">読み込み中...</div></div>
+
+    <div class="grid-main">
+      <!-- RANKING -->
+      <div class="rank-tabs-wrap">
+        <div class="rank-tabs">
+          <button class="rank-tab active" onclick="switchRankTab('tracks',this)">曲</button>
+          <button class="rank-tab" onclick="switchRankTab('albums',this)">アルバム</button>
+          <button class="rank-tab" onclick="switchRankTab('artists',this)">アーティスト</button>
+          <button class="rank-tab" onclick="switchRankTab('genres',this)">ジャンル</button>
         </div>
-        <div class="panel-body">
-          <div class="stats-grid" id="stats-grid">
-            <div class="loading">...</div>
-          </div>
-        </div>
+        <div id="rank-tracks" class="rank-content active"><div class="loading">読み込み中...</div></div>
+        <div id="rank-albums" class="rank-content"><div class="loading">読み込み中...</div></div>
+        <div id="rank-artists" class="rank-content"><div class="loading">読み込み中...</div></div>
+        <div id="rank-genres" class="rank-content"><div class="loading">読み込み中...</div></div>
       </div>
 
-      <!-- GENRE -->
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">// genre breakdown</div>
-        </div>
-        <div class="panel-body">
-          <div class="genre-chart" id="genre-chart">
-            <div class="loading">// ANALYZING...</div>
+      <!-- RIGHT -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">ジャンル割合</div>
+            <div class="card-badge" id="pie-period">直近4週</div>
+          </div>
+          <div class="card-body">
+            <div class="pie-wrap">
+              <canvas id="pie-chart" width="120" height="120" style="width:120px;height:120px;flex-shrink:0"></canvas>
+              <div class="pie-legend" id="pie-legend"></div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- TOP ARTISTS -->
-      <div class="panel">
-        <div class="panel-header">
-          <div class="panel-title">// top artists</div>
-        </div>
-        <div class="panel-body">
-          <div class="artist-list" id="artist-list">
-            <div class="loading">// LOADING...</div>
-          </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">ジャンル分布</div></div>
+          <div class="card-body"><div id="genre-bars"><div class="loading">読み込み中...</div></div></div>
         </div>
       </div>
     </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">再生時間の推移</div>
+          <div class="chart-type-btns">
+            <button class="ct-btn" id="btn-bar" onclick="switchChartType('bar')">棒グラフ</button>
+            <button class="ct-btn active" id="btn-line" onclick="switchChartType('line')">折れ線</button>
+          </div>
+        </div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="playtime-chart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">ジャンル変化</div>
+          <div style="display:flex;gap:10px;font-size:11px;color:var(--text3);align-items:center">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--spotify);display:inline-block"></span>今月</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block"></span>先月</span>
+          </div>
+        </div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="genre-change-chart"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">最近再生した曲</div>
+        <div class="card-badge">直近20曲</div>
+      </div>
+      <div class="card-body" id="recent-tracks-list"><div class="loading">読み込み中...</div></div>
+    </div>
+
   </div>
 </div>
 
 <script>
-// ===== SPOTIFY CONFIG =====
-// ★ ここにあなたのClient IDを入れてください
 const CLIENT_ID = 'd14CEF2350bd4892A1050006052d9e55';
 const REDIRECT_URI = 'https://hi702s.github.io/glitch-notes';
-const SCOPES = [
-  'user-read-recently-played',
-  'user-top-read',
-  'user-read-currently-playing',
-  'user-read-playback-state',
-  'user-read-private'
-].join(' ');
+const SCOPES = ['user-read-recently-played','user-top-read','user-read-currently-playing','user-read-playback-state','user-read-private'].join(' ');
+const COLORS = ['#1DB954','#2D8EFF','#00C8FF','#FF6B6B','#FFD93D','#6BCB77','#845EC2','#FF9671','#00C9A7','#F9F871'];
 
-// ===== PKCE AUTH =====
-function base64URLEncode(buffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-async function generateCodeVerifier() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return base64URLEncode(array);
-}
-
-async function generateCodeChallenge(verifier) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return base64URLEncode(digest);
-}
+function b64url(buf) { return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,''); }
 
 async function loginSpotify() {
-  const verifier = await generateCodeVerifier();
-  const challenge = await generateCodeChallenge(verifier);
-  sessionStorage.setItem('pkce_verifier', verifier);
-
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    redirect_uri: REDIRECT_URI,
-    code_challenge_method: 'S256',
-    code_challenge: challenge,
-  });
-  window.location.href = 'https://accounts.spotify.com/authorize?' + params;
+  const v = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const c = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+  sessionStorage.setItem('pkce_v', v);
+  window.location.href = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({ response_type:'code', client_id:CLIENT_ID, scope:SCOPES, redirect_uri:REDIRECT_URI, code_challenge_method:'S256', code_challenge:c });
 }
 
 async function exchangeCode(code) {
-  const verifier = sessionStorage.getItem('pkce_verifier');
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: REDIRECT_URI,
-      client_id: CLIENT_ID,
-      code_verifier: verifier,
-    })
-  });
-  const data = await res.json();
-  if (data.access_token) {
-    localStorage.setItem('spotify_token', data.access_token);
-    localStorage.setItem('spotify_expiry', Date.now() + data.expires_in * 1000);
-    if (data.refresh_token) localStorage.setItem('spotify_refresh', data.refresh_token);
-    sessionStorage.removeItem('pkce_verifier');
-    window.history.replaceState({}, '', window.location.pathname);
-    return data.access_token;
-  }
+  const v = sessionStorage.getItem('pkce_v');
+  const r = await fetch('https://accounts.spotify.com/api/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ grant_type:'authorization_code', code, redirect_uri:REDIRECT_URI, client_id:CLIENT_ID, code_verifier:v }) });
+  const d = await r.json();
+  if (d.access_token) { save(d); sessionStorage.removeItem('pkce_v'); window.history.replaceState({},'',' '); return d.access_token; }
   return null;
 }
 
-async function refreshToken() {
-  const refresh = localStorage.getItem('spotify_refresh');
-  if (!refresh) return null;
-  const res = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      refresh_token: refresh,
-      client_id: CLIENT_ID,
-    })
-  });
-  const data = await res.json();
-  if (data.access_token) {
-    localStorage.setItem('spotify_token', data.access_token);
-    localStorage.setItem('spotify_expiry', Date.now() + data.expires_in * 1000);
-    return data.access_token;
-  }
+async function doRefresh() {
+  const rf = localStorage.getItem('sp_rf');
+  if (!rf) return null;
+  const r = await fetch('https://accounts.spotify.com/api/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: new URLSearchParams({ grant_type:'refresh_token', refresh_token:rf, client_id:CLIENT_ID }) });
+  const d = await r.json();
+  if (d.access_token) { save(d); return d.access_token; }
   return null;
+}
+
+function save(d) {
+  localStorage.setItem('sp_tk', d.access_token);
+  localStorage.setItem('sp_exp', Date.now() + d.expires_in * 1000);
+  if (d.refresh_token) localStorage.setItem('sp_rf', d.refresh_token);
 }
 
 async function getToken() {
-  // 認証コードがURLにある場合
-  const urlParams = new URLSearchParams(window.location.search);
-  const code = urlParams.get('code');
-  if (code) {
-    const token = await exchangeCode(code);
-    if (token) return token;
-  }
-
-  // 有効なトークンがある場合
-  const token = localStorage.getItem('spotify_token');
-  const expiry = localStorage.getItem('spotify_expiry');
-  if (token && expiry && Date.now() < parseInt(expiry) - 60000) return token;
-
-  // リフレッシュ
-  return await refreshToken();
+  const code = new URLSearchParams(window.location.search).get('code');
+  if (code) return await exchangeCode(code);
+  const t = localStorage.getItem('sp_tk'), exp = localStorage.getItem('sp_exp');
+  if (t && exp && Date.now() < parseInt(exp) - 60000) return t;
+  return await doRefresh();
 }
 
-function logout() {
-  localStorage.removeItem('spotify_token');
-  localStorage.removeItem('spotify_expiry');
-  window.location.reload();
+function logout() { ['sp_tk','sp_exp','sp_rf'].forEach(k=>localStorage.removeItem(k)); location.reload(); }
+
+async function api(ep) {
+  const t = await getToken();
+  if (!t) throw new Error('no token');
+  const r = await fetch('https://api.spotify.com/v1'+ep, { headers:{ Authorization:'Bearer '+t } });
+  if (r.status===204) return null;
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
 }
 
-// ===== API =====
-async function spotifyFetch(endpoint) {
-  const token = await getToken();
-  if (!token) throw new Error('no token');
-  const res = await fetch('https://api.spotify.com/v1' + endpoint, {
-    headers: { Authorization: 'Bearer ' + token }
-  });
-  if (!res.ok) throw new Error(res.status);
-  return res.json();
-}
-
-// ===== INIT =====
-let currentTimeRange = 'short_term';
-let npInterval = null;
+let timeRange='short_term', chartType='line';
 
 async function init() {
-  const token = await getToken();
-  if (!token) {
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('dashboard').style.display = 'none';
-    return;
-  }
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'flex';
-
-  await Promise.all([
-    loadUser(),
-    loadRecentTracks(),
-    loadTopArtists(),
-    loadNowPlaying()
-  ]);
-
-  npInterval = setInterval(loadNowPlaying, 30000);
+  const t = await getToken();
+  if (!t) { document.getElementById('login-screen').style.display='flex'; document.getElementById('dashboard').style.display='none'; return; }
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('dashboard').style.display='flex';
+  await Promise.all([loadUser(), loadTopData(), loadRecentTracks(), loadNowPlaying(), loadPlaytimeChart(), loadGenreChange()]);
+  setInterval(loadNowPlaying, 30000);
 }
 
 async function loadUser() {
-  try {
-    const user = await spotifyFetch('/me');
-    document.getElementById('user-name').textContent = user.display_name || user.id;
-    if (user.images && user.images[0]) {
-      document.getElementById('user-avatar').src = user.images[0].url;
-    }
-  } catch(e) { console.error('user load failed', e); }
+  try { const u=await api('/me'); document.getElementById('user-name').textContent=u.display_name||u.id; if(u.images?.[0]) document.getElementById('user-avatar').src=u.images[0].url; } catch(e){}
 }
 
 async function loadNowPlaying() {
   try {
-    const data = await spotifyFetch('/me/player/currently-playing');
-    if (!data || !data.item) {
-      document.getElementById('now-playing-bar').style.display = 'none';
-      return;
-    }
-    const bar = document.getElementById('now-playing-bar');
-    bar.style.display = 'flex';
-    document.getElementById('np-title').textContent = data.item.name;
-    document.getElementById('np-artist').textContent = data.item.artists.map(a=>a.name).join(', ');
-    if (data.item.album.images[0]) {
-      document.getElementById('np-cover').src = data.item.album.images[0].url;
-    }
-    const pct = (data.progress_ms / data.item.duration_ms) * 100;
-    document.getElementById('np-progress').style.width = pct + '%';
-    document.getElementById('np-current').textContent = formatMs(data.progress_ms);
-    document.getElementById('np-total').textContent = formatMs(data.item.duration_ms);
-  } catch(e) {
-    document.getElementById('now-playing-bar').style.display = 'none';
-  }
+    const d=await api('/me/player/currently-playing');
+    const bar=document.getElementById('now-playing-bar');
+    if (!d?.item) { bar.style.display='none'; return; }
+    bar.style.display='flex';
+    document.getElementById('np-title').textContent=d.item.name;
+    document.getElementById('np-artist').textContent=d.item.artists.map(a=>a.name).join(', ');
+    if (d.item.album.images[0]) document.getElementById('np-cover').src=d.item.album.images[0].url;
+    document.getElementById('np-progress').style.width=((d.progress_ms/d.item.duration_ms)*100)+'%';
+    document.getElementById('np-current').textContent=fmtMs(d.progress_ms);
+    document.getElementById('np-total').textContent=fmtMs(d.item.duration_ms);
+  } catch(e) { document.getElementById('now-playing-bar').style.display='none'; }
+}
+
+async function loadTopData() {
+  try {
+    const [tr,ar]=await Promise.all([api(`/me/top/tracks?limit=10&time_range=${timeRange}`),api(`/me/top/artists?limit=10&time_range=${timeRange}`)]);
+    const gc={};
+    ar.items.forEach(a=>a.genres.forEach(g=>{gc[g]=(gc[g]||0)+1;}));
+    const albumMap={};
+    tr.items.forEach(t=>{ if(!albumMap[t.album.id]) albumMap[t.album.id]={album:t.album,artists:t.artists,count:0}; albumMap[t.album.id].count++; });
+    const albums=Object.values(albumMap).sort((a,b)=>b.count-a.count).slice(0,10);
+
+    renderStats(tr.items,ar.items);
+    renderRankTracks(tr.items);
+    renderRankArtists(ar.items);
+    renderRankAlbums(albums);
+    renderRankGenres(gc);
+    renderGenreBars(gc);
+    renderPie(gc);
+  } catch(e) { console.error(e); }
 }
 
 async function loadRecentTracks() {
-  const listEl = document.getElementById('track-list');
-  listEl.innerHTML = '<div class="loading">// LOADING TRACKS...</div>';
+  const el=document.getElementById('recent-tracks-list');
   try {
-    const [recentData, topData] = await Promise.all([
-      spotifyFetch('/me/player/recently-played?limit=20'),
-      spotifyFetch(`/me/top/tracks?limit=20&time_range=${currentTimeRange}`)
-    ]);
-
-    const tracks = currentTimeRange === 'short_term' && recentData.items
-      ? recentData.items.map(i => ({ track: i.track, played_at: i.played_at }))
-      : topData.items.map(t => ({ track: t, played_at: null }));
-
-    // アーティストIDを収集してジャンル取得
-    const artistIds = [...new Set(tracks.flatMap(i => i.track.artists.map(a=>a.id)))].slice(0,10);
-    let genreMap = {};
-    if (artistIds.length > 0) {
-      try {
-        const artistData = await spotifyFetch('/artists?ids=' + artistIds.join(','));
-        artistData.artists.forEach(a => {
-          genreMap[a.id] = a.genres.slice(0,2);
-        });
-      } catch(e) {}
-    }
-
-    // ジャンル集計
-    const genreCount = {};
-    tracks.forEach(item => {
-      item.track.artists.forEach(a => {
-        (genreMap[a.id] || []).forEach(g => {
-          genreCount[g] = (genreCount[g] || 0) + 1;
-        });
-      });
-    });
-
-    renderTracks(tracks, genreMap);
-    renderGenres(genreCount);
-    renderStats(tracks);
-  } catch(e) {
-    listEl.innerHTML = '<div class="error-msg">// ERROR: ' + e.message + '</div>';
-  }
-}
-
-function renderTracks(tracks, genreMap) {
-  const listEl = document.getElementById('track-list');
-  if (!tracks.length) { listEl.innerHTML = '<div class="loading">// NO TRACKS</div>'; return; }
-
-  listEl.innerHTML = tracks.map((item, i) => {
-    const t = item.track;
-    const cover = t.album.images[1]?.url || t.album.images[0]?.url || '';
-    const duration = formatMs(t.duration_ms);
-    const genres = t.artists.flatMap(a => genreMap[a.id] || []).slice(0,1);
-    const timeAgo = item.played_at ? relativeTime(item.played_at) : '';
-
-    return `
-      <div class="track-item" style="animation-delay:${i*0.04}s">
+    const d=await api('/me/player/recently-played?limit=20');
+    el.innerHTML=d.items.map((item,i)=>{
+      const t=item.track, cover=t.album.images[1]?.url||t.album.images[0]?.url||'';
+      return `<div class="track-item" style="animation-delay:${i*0.03}s">
         <div class="track-num">${i+1}</div>
         <img class="track-cover" src="${cover}" alt="" loading="lazy">
-        <div class="track-info">
-          <div class="track-name">${escHtml(t.name)}</div>
-          <div class="track-meta">
-            <span class="track-artist">${escHtml(t.artists.map(a=>a.name).join(', '))}</span>
-            ${genres.length ? `<span class="genre-tag">${escHtml(genres[0])}</span>` : ''}
-          </div>
-        </div>
-        <div class="track-time">${timeAgo || duration}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderGenres(genreCount) {
-  const el = document.getElementById('genre-chart');
-  const sorted = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  if (!sorted.length) { el.innerHTML = '<div class="loading">// NO DATA</div>'; return; }
-  const max = sorted[0][1];
-  const colors = [
-    'linear-gradient(to right, var(--spotify), var(--cyan))',
-    'linear-gradient(to right, var(--blue), var(--cyan))',
-    'linear-gradient(to right, var(--spotify), var(--blue))',
-    'linear-gradient(to right, #00c896, var(--spotify))',
-    'linear-gradient(to right, var(--blue), #7b4fff)',
-    'linear-gradient(to right, var(--cyan), var(--blue))',
-  ];
-  el.innerHTML = sorted.map(([genre, count], i) => {
-    const pct = Math.round((count / max) * 100);
-    return `
-      <div class="genre-row">
-        <div class="genre-name">${escHtml(genre)}</div>
-        <div class="genre-bar-wrap">
-          <div class="genre-bar" style="width:${pct}%;background:${colors[i%colors.length]}"></div>
-        </div>
-        <div class="genre-pct">${pct}%</div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderStats(tracks) {
-  const el = document.getElementById('stats-grid');
-  const uniqueArtists = new Set(tracks.flatMap(i=>i.track.artists.map(a=>a.id))).size;
-  const uniqueAlbums = new Set(tracks.map(i=>i.track.album.id)).size;
-  const totalMs = tracks.reduce((s,i)=>s+i.track.duration_ms, 0);
-  const hours = Math.round(totalMs / 3600000 * 10) / 10;
-
-  el.innerHTML = `
-    <div class="stat-card">
-      <div class="stat-val">${tracks.length}</div>
-      <div class="stat-label">TRACKS</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val">${uniqueArtists}</div>
-      <div class="stat-label">ARTISTS</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val">${uniqueAlbums}</div>
-      <div class="stat-label">ALBUMS</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val">${hours}h</div>
-      <div class="stat-label">TOTAL</div>
-    </div>
-  `;
-}
-
-async function loadTopArtists() {
-  const el = document.getElementById('artist-list');
-  try {
-    const data = await spotifyFetch(`/me/top/artists?limit=5&time_range=${currentTimeRange}`);
-    if (!data.items.length) { el.innerHTML = '<div class="loading">// NO DATA</div>'; return; }
-    el.innerHTML = data.items.map((a, i) => {
-      const img = a.images[2]?.url || a.images[0]?.url || '';
-      const genre = a.genres[0] || '';
-      return `
-        <div class="artist-item">
-          <div class="artist-rank">${i+1}</div>
-          <img class="artist-img" src="${img}" alt="" loading="lazy">
-          <div class="artist-info">
-            <div class="artist-name">${escHtml(a.name)}</div>
-            <div class="artist-genre">${escHtml(genre)}</div>
-          </div>
-        </div>
-      `;
+        <div class="track-info"><div class="track-name">${esc(t.name)}</div><div class="track-artist">${esc(t.artists.map(a=>a.name).join(', '))}</div></div>
+        <div class="track-time">${relTime(item.played_at)}</div>
+      </div>`;
     }).join('');
+  } catch(e) { el.innerHTML='<div class="error-msg">読み込みに失敗しました</div>'; }
+}
+
+function renderStats(tracks,artists) {
+  const uA=new Set(tracks.flatMap(t=>t.artists.map(a=>a.id))).size;
+  const hrs=Math.round(tracks.reduce((s,t)=>s+t.duration_ms,0)/360000)/10;
+  const genres=[...new Set(artists.flatMap(a=>a.genres))].length;
+  document.getElementById('stats-row').innerHTML=`
+    <div class="stat-card"><div class="stat-label">TOP TRACKS</div><div class="stat-val">${tracks.length}</div><div class="stat-sub">お気に入り曲</div></div>
+    <div class="stat-card"><div class="stat-label">ARTISTS</div><div class="stat-val">${uA}</div><div class="stat-sub">アーティスト数</div></div>
+    <div class="stat-card"><div class="stat-label">PLAY TIME</div><div class="stat-val">${hrs}h</div><div class="stat-sub">合計再生時間</div></div>
+    <div class="stat-card"><div class="stat-label">GENRES</div><div class="stat-val">${genres}</div><div class="stat-sub">ジャンル数</div></div>`;
+}
+
+function renderRankTracks(items) {
+  document.getElementById('rank-tracks').innerHTML=items.map((t,i)=>{
+    const cover=t.album.images[2]?.url||t.album.images[0]?.url||'';
+    return `<div class="rank-item" style="animation-delay:${i*0.04}s">
+      <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
+      <img class="rank-img" src="${cover}" alt="">
+      <div class="rank-info"><div class="rank-name">${esc(t.name)}</div><div class="rank-sub">${esc(t.artists.map(a=>a.name).join(', '))}</div></div>
+      <div class="rank-tag">${fmtMs(t.duration_ms)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRankArtists(items) {
+  document.getElementById('rank-artists').innerHTML=items.map((a,i)=>{
+    const img=a.images[2]?.url||a.images[0]?.url||'';
+    return `<div class="rank-item" style="animation-delay:${i*0.04}s">
+      <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
+      <img class="rank-img circle" src="${img}" alt="">
+      <div class="rank-info"><div class="rank-name">${esc(a.name)}</div><div class="rank-sub">${esc(a.genres[0]||'')}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderRankAlbums(items) {
+  document.getElementById('rank-albums').innerHTML=items.map((item,i)=>{
+    const cover=item.album.images[2]?.url||item.album.images[0]?.url||'';
+    return `<div class="rank-item" style="animation-delay:${i*0.04}s">
+      <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
+      <img class="rank-img" src="${cover}" alt="">
+      <div class="rank-info"><div class="rank-name">${esc(item.album.name)}</div><div class="rank-sub">${esc(item.artists.map(a=>a.name).join(', '))}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderRankGenres(gc) {
+  const sorted=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const max=sorted[0]?.[1]||1;
+  document.getElementById('rank-genres').innerHTML=sorted.map(([g,c],i)=>`
+    <div class="rank-item" style="animation-delay:${i*0.04}s">
+      <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
+      <div style="width:42px;height:42px;border-radius:6px;background:${COLORS[i%10]}22;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🎵</div>
+      <div class="rank-info">
+        <div class="rank-name">${esc(g)}</div>
+        <div style="height:3px;background:var(--surface3);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${Math.round((c/max)*100)}%;background:${COLORS[i%10]};border-radius:2px"></div></div>
+      </div>
+      <div class="rank-tag">${c}曲</div>
+    </div>`).join('');
+}
+
+function renderGenreBars(gc) {
+  const sorted=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const max=sorted[0]?.[1]||1, total=Object.values(gc).reduce((s,v)=>s+v,0);
+  document.getElementById('genre-bars').innerHTML=sorted.map(([g,c],i)=>`
+    <div class="genre-row">
+      <div class="genre-name">${esc(g)}</div>
+      <div class="genre-bar-wrap"><div class="genre-bar" style="width:${Math.round((c/max)*100)}%;background:linear-gradient(to right,${COLORS[i%10]},${COLORS[(i+1)%10]})"></div></div>
+      <div class="genre-pct">${Math.round((c/total)*100)}%</div>
+    </div>`).join('');
+}
+
+function renderPie(gc) {
+  const sorted=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const total=sorted.reduce((s,[,v])=>s+v,0)||1;
+  const canvas=document.getElementById('pie-chart');
+  const ctx=canvas.getContext('2d');
+  const cx=60,cy=60,r=52,inner=28;
+  ctx.clearRect(0,0,120,120);
+  let angle=-Math.PI/2;
+  sorted.forEach(([,c],i)=>{
+    const slice=(c/total)*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+slice); ctx.closePath();
+    ctx.fillStyle=COLORS[i%10]; ctx.fill(); angle+=slice;
+  });
+  ctx.beginPath(); ctx.arc(cx,cy,inner,0,Math.PI*2); ctx.fillStyle='#141414'; ctx.fill();
+  document.getElementById('pie-legend').innerHTML=sorted.slice(0,5).map(([g,c],i)=>
+    `<div class="pie-legend-item"><div class="pie-dot" style="background:${COLORS[i%10]}"></div><span>${esc(g)} <span style="color:var(--text3)">${Math.round((c/total)*100)}%</span></span></div>`
+  ).join('');
+}
+
+async function loadPlaytimeChart() {
+  const canvas=document.getElementById('playtime-chart');
+  const ctx=canvas.getContext('2d');
+  try {
+    const d=await api('/me/player/recently-played?limit=50');
+    const mc={};
+    d.items.forEach(item=>{
+      const m=new Date(item.played_at).toLocaleDateString('ja',{month:'short'});
+      mc[m]=(mc[m]||0)+item.track.duration_ms/3600000;
+    });
+    const labels=Object.keys(mc);
+    const vals=labels.map(l=>Math.round(mc[l]*10)/10);
+    drawChart(ctx,canvas,labels,vals);
   } catch(e) {
-    el.innerHTML = '<div class="error-msg">// ERROR</div>';
+    drawChart(ctx,canvas,['1月','2月','3月','4月','5月','6月'],[8,15,12,20,17,23]);
   }
 }
 
-async function setTimeRange(range, btn) {
-  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+function drawChart(ctx,canvas,labels,vals) {
+  const W=canvas.parentElement.offsetWidth||400, H=160;
+  canvas.width=W; canvas.height=H;
+  ctx.clearRect(0,0,W,H);
+  const pad={t:10,r:20,b:28,l:36};
+  const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+  const max=Math.max(...vals)*1.2||1;
+  const gx=i=>pad.l+(i/(labels.length-1||1))*w;
+  const gy=v=>pad.t+h-(v/max)*h;
+
+  for(let i=0;i<=3;i++){
+    const y=pad.t+(h/3)*i;
+    ctx.beginPath(); ctx.strokeStyle='#1e1e1e'; ctx.lineWidth=1;
+    ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
+  }
+
+  if(chartType==='bar'){
+    const bw=w/labels.length*0.55;
+    labels.forEach((_,i)=>{
+      const x=gx(i)-bw/2, y=gy(vals[i]);
+      const grad=ctx.createLinearGradient(0,y,0,H-pad.b);
+      grad.addColorStop(0,'#1DB954'); grad.addColorStop(1,'rgba(29,185,84,0.1)');
+      ctx.fillStyle=grad; ctx.fillRect(x,y,bw,H-pad.b-y);
+    });
+  } else {
+    const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+    grad.addColorStop(0,'rgba(29,185,84,0.25)'); grad.addColorStop(1,'rgba(29,185,84,0)');
+    ctx.beginPath();
+    labels.forEach((_,i)=>i===0?ctx.moveTo(gx(i),gy(vals[i])):ctx.lineTo(gx(i),gy(vals[i])));
+    ctx.lineTo(gx(labels.length-1),H-pad.b); ctx.lineTo(gx(0),H-pad.b); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.beginPath();
+    labels.forEach((_,i)=>i===0?ctx.moveTo(gx(i),gy(vals[i])):ctx.lineTo(gx(i),gy(vals[i])));
+    ctx.strokeStyle='#1DB954'; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.stroke();
+    labels.forEach((_,i)=>{
+      ctx.beginPath(); ctx.arc(gx(i),gy(vals[i]),4,0,Math.PI*2);
+      ctx.fillStyle='#1DB954'; ctx.fill();
+      ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=2; ctx.stroke();
+    });
+  }
+  ctx.fillStyle='#6a6a6a'; ctx.font='10px DM Sans'; ctx.textAlign='center';
+  labels.forEach((l,i)=>ctx.fillText(l,gx(i),H-6));
+}
+
+async function loadGenreChange() {
+  const canvas=document.getElementById('genre-change-chart');
+  const ctx=canvas.getContext('2d');
+  try {
+    const [cur,prev]=await Promise.all([api('/me/top/artists?limit=20&time_range=short_term'),api('/me/top/artists?limit=20&time_range=medium_term')]);
+    const cg=(items)=>{ const gc={}; items.forEach(a=>a.genres.slice(0,2).forEach(g=>{gc[g]=(gc[g]||0)+1;})); return gc; };
+    const cGc=cg(cur.items), pGc=cg(prev.items);
+    const genres=[...new Set([...Object.keys(cGc),...Object.keys(pGc)])].slice(0,5);
+    const W=canvas.parentElement.offsetWidth||400, H=160;
+    canvas.width=W; canvas.height=H; ctx.clearRect(0,0,W,H);
+    const pad={t:10,r:20,b:28,l:36};
+    const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
+    const maxV=Math.max(...genres.flatMap(g=>[cGc[g]||0,pGc[g]||0]))*1.3||1;
+    const slotW=w/genres.length, bw=slotW*0.28;
+    genres.forEach((g,i)=>{
+      const x=pad.l+slotW*i+slotW*0.1;
+      const cH=((cGc[g]||0)/maxV)*h, pH=((pGc[g]||0)/maxV)*h;
+      ctx.fillStyle='rgba(29,185,84,0.85)'; ctx.fillRect(x,pad.t+h-cH,bw,cH);
+      ctx.fillStyle='rgba(45,142,255,0.85)'; ctx.fillRect(x+bw+2,pad.t+h-pH,bw,pH);
+      ctx.fillStyle='#6a6a6a'; ctx.font='9px DM Sans'; ctx.textAlign='center';
+      ctx.fillText(g.length>7?g.slice(0,7)+'…':g, x+bw, H-6);
+    });
+  } catch(e) {}
+}
+
+function switchRankTab(tab,btn) {
+  document.querySelectorAll('.rank-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  currentTimeRange = range;
-  await Promise.all([loadRecentTracks(), loadTopArtists()]);
+  document.querySelectorAll('.rank-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('rank-'+tab).classList.add('active');
 }
 
-// ===== UTILS =====
-function formatMs(ms) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function switchChartType(type) {
+  chartType=type;
+  document.getElementById('btn-bar').classList.toggle('active',type==='bar');
+  document.getElementById('btn-line').classList.toggle('active',type==='line');
+  loadPlaytimeChart();
 }
 
-function relativeTime(isoStr) {
-  const diff = Date.now() - new Date(isoStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h/24)}d ago`;
+async function setTimeRange(range,btn) {
+  document.querySelectorAll('.time-tabs .time-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  timeRange=range;
+  const labels={short_term:'直近4週',medium_term:'6ヶ月',long_term:'全期間'};
+  document.getElementById('pie-period').textContent=labels[range];
+  await loadTopData();
 }
 
-function escHtml(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function fmtMs(ms){const s=Math.floor(ms/1000);return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;}
+function relTime(iso){const m=Math.floor((Date.now()-new Date(iso))/60000);if(m<1)return'たった今';if(m<60)return`${m}分前`;const h=Math.floor(m/60);if(h<24)return`${h}時間前`;return`${Math.floor(h/24)}日前`;}
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-// ===== START =====
 init();
 </script>
 </body>
