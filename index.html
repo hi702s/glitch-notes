@@ -267,7 +267,7 @@ canvas { width: 100% !important; }
           <button class="rank-tab active" onclick="switchRankTab('tracks',this)">曲</button>
           <button class="rank-tab" onclick="switchRankTab('albums',this)">アルバム</button>
           <button class="rank-tab" onclick="switchRankTab('artists',this)">アーティスト</button>
-          <button class="rank-tab" onclick="switchRankTab('genres',this)">ジャンル</button>
+          <button class="rank-tab" onclick="switchRankTab('genres',this)">人気度</button>
         </div>
         <div id="rank-tracks" class="rank-content active"><div class="loading">読み込み中...</div></div>
         <div id="rank-albums" class="rank-content"><div class="loading">読み込み中...</div></div>
@@ -296,26 +296,20 @@ canvas { width: 100% !important; }
       </div>
     </div>
 
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">再生時間の推移</div>
-          <div class="chart-type-btns">
-            <button class="ct-btn" id="btn-bar" onclick="switchChartType('bar')">棒グラフ</button>
-            <button class="ct-btn active" id="btn-line" onclick="switchChartType('line')">折れ線</button>
-          </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">再生時間の推移</div>
+        <div class="time-tabs" style="padding:2px;gap:2px">
+          <button class="time-tab active" id="pt-month-btn" onclick="switchPlaytimeView('month',this)" style="padding:4px 12px;font-size:11px">月間</button>
+          <button class="time-tab" id="pt-week-btn" onclick="switchPlaytimeView('week',this)" style="padding:4px 12px;font-size:11px">週間</button>
         </div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="playtime-chart"></canvas></div></div>
       </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">ジャンル変化</div>
-          <div style="display:flex;gap:10px;font-size:11px;color:var(--text3);align-items:center">
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--spotify);display:inline-block"></span>今月</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block"></span>先月</span>
-          </div>
+      <div class="card-body">
+        <div id="playtime-summary" style="font-size:13px;font-weight:600;margin-bottom:10px;min-height:20px"></div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="playtime-chart"></canvas>
         </div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="genre-change-chart"></canvas></div></div>
+        <div id="month-detail-label" style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px"></div>
       </div>
     </div>
 
@@ -597,18 +591,292 @@ function renderRankAlbums(items) {
 }
 
 function renderRankGenres(gc) {
-  const sorted=Object.entries(gc).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const max=sorted[0]?.[1]||1;
-  document.getElementById('rank-genres').innerHTML=sorted.map(([g,c],i)=>`
-    <div class="rank-item" style="animation-delay:${i*0.04}s">
-      <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
-      <div style="width:42px;height:42px;border-radius:6px;background:${COLORS[i%10]}22;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🎵</div>
-      <div class="rank-info">
-        <div class="rank-name">${esc(g)}</div>
-        <div style="height:3px;background:var(--surface3);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;width:${Math.round((c/max)*100)}%;background:${COLORS[i%10]};border-radius:2px"></div></div>
-      </div>
-      <div class="rank-tag">${c}曲</div>
-    </div>`).join('');
+  // 人気度ランキングに変更
+  const el = document.getElementById('rank-genres');
+  el.innerHTML = '<div class="loading">読み込み中...</div>';
+  // topTracksのpopularityを使う
+  loadPopularityRanking();
+}
+
+async function loadPopularityRanking() {
+  const el = document.getElementById('rank-genres');
+  try {
+    const data = await api(`/me/top/tracks?limit=10&time_range=${timeRange}`);
+    const tracks = (data?.items || []).filter(t=>t);
+    const sorted = [...tracks].sort((a,b)=>(b.popularity||0)-(a.popularity||0));
+    el.innerHTML = sorted.map((t,i) => {
+      const imgs = t.album?.images || [];
+      const cover = imgs[2]?.url || imgs[0]?.url || '';
+      const pop = t.popularity || 0;
+      return `<div class="rank-item" style="animation-delay:${i*0.04}s">
+        <div class="rank-num ${i<3?'top3':''}">${i+1}</div>
+        <img class="rank-img" src="${cover}" alt="">
+        <div class="rank-info">
+          <div class="rank-name">${esc(t.name||'')}</div>
+          <div style="height:4px;background:var(--surface3);border-radius:2px;margin-top:6px;overflow:hidden">
+            <div style="height:100%;width:${pop}%;background:linear-gradient(to right,var(--spotify),var(--blue));border-radius:2px;transition:width 1s ease"></div>
+          </div>
+        </div>
+        <div class="rank-tag">${pop}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = '<div class="error-msg">読み込みに失敗しました</div>'; }
+}
+
+// ===== 再生時間グラフ =====
+let playtimeView = 'month'; // 'month' or 'week'
+let allHistory = [];
+let selectedMonth = null;
+
+async function loadAndSaveHistory() {
+  try {
+    const d = await api('/me/player/recently-played?limit=50');
+    if (d?.items) await savePlayHistory(d.items);
+    allHistory = await getPlayHistory();
+    drawPlaytimeFromHistory();
+  } catch(e) { console.error('history error:', e); }
+}
+
+function switchPlaytimeView(view, btn) {
+  playtimeView = view;
+  selectedMonth = null;
+  document.querySelectorAll('#pt-month-btn,#pt-week-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawPlaytimeFromHistory();
+}
+
+function drawPlaytimeFromHistory() {
+  const canvas = document.getElementById('playtime-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  if (playtimeView === 'week') {
+    drawWeeklyChart(ctx, canvas);
+  } else {
+    // 月間表示：データが1ヶ月以下なら今月の日別をデフォルト表示
+    const months = [...new Set(allHistory.map(r => {
+      const d = new Date(r.played_at);
+      return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    }))];
+    if (months.length <= 1 && months.length > 0) {
+      showDayDetail(months[0]);
+    } else {
+      drawMonthlyChart(ctx, canvas);
+    }
+  }
+}
+
+function drawMonthlyChart(ctx, canvas) {
+  // 月別集計
+  const monthData = {};
+  allHistory.forEach(row => {
+    const d = new Date(row.played_at);
+    const key = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    const label = `${d.getMonth()+1}月`;
+    if (!monthData[key]) monthData[key] = { label, ms: 0, key };
+    monthData[key].ms += parseInt(row.duration_ms) || 0;
+  });
+
+  const sorted = Object.entries(monthData).sort((a,b)=>a[0].localeCompare(b[0]));
+  const labels = sorted.map(([,v])=>v.label);
+  const vals = sorted.map(([,v])=>Math.round(v.ms/3600000*10)/10);
+  const keys = sorted.map(([k])=>k);
+
+  // 先月比表示
+  const summaryEl = document.getElementById('playtime-summary');
+  if (vals.length >= 2) {
+    const cur = vals[vals.length-1];
+    const prev = vals[vals.length-2];
+    const diff = Math.round((cur-prev)*10)/10;
+    const sign = diff >= 0 ? '+' : '';
+    summaryEl.style.color = diff >= 0 ? 'var(--spotify)' : '#FF6B6B';
+    summaryEl.textContent = `先月より ${sign}${diff}時間`;
+  } else if (vals.length === 1) {
+    summaryEl.style.color = 'var(--text3)';
+    summaryEl.textContent = `今月 ${vals[0]}時間再生`;
+  }
+
+  document.getElementById('month-detail-label').textContent = '月をクリックで日別表示';
+  drawAreaChart(ctx, canvas, labels, vals, keys);
+}
+
+function drawWeeklyChart(ctx, canvas) {
+  // 週別集計（直近8週）
+  const weekData = {};
+  const now = new Date();
+  allHistory.forEach(row => {
+    const d = new Date(row.played_at);
+    const diff = Math.floor((now - d) / (7*24*3600*1000));
+    if (diff > 7) return;
+    const weekStart = new Date(d);
+    weekStart.setDate(d.getDate() - d.getDay());
+    const key = weekStart.toLocaleDateString('ja',{month:'short',day:'numeric'});
+    if (!weekData[key]) weekData[key] = { label: key, ms: 0 };
+    weekData[key].ms += parseInt(row.duration_ms) || 0;
+  });
+
+  const sorted = Object.entries(weekData).sort((a,b)=>a[0].localeCompare(b[0]));
+  const labels = sorted.map(([,v])=>v.label);
+  const vals = sorted.map(([,v])=>Math.round(v.ms/3600000*10)/10);
+
+  const summaryEl = document.getElementById('playtime-summary');
+  if (vals.length >= 2) {
+    const cur = vals[vals.length-1];
+    const prev = vals[vals.length-2];
+    const diff = Math.round((cur-prev)*10)/10;
+    const sign = diff >= 0 ? '+' : '';
+    summaryEl.style.color = diff >= 0 ? 'var(--spotify)' : '#FF6B6B';
+    summaryEl.textContent = `先週より ${sign}${diff}時間`;
+  }
+
+  document.getElementById('month-detail-label').textContent = '';
+  drawAreaChart(ctx, canvas, labels, vals, null);
+}
+
+function showDayDetail(monthKey) {
+  const canvas = document.getElementById('playtime-chart');
+  const ctx = canvas.getContext('2d');
+  selectedMonth = monthKey;
+
+  // 日別集計
+  const dayData = {};
+  allHistory.forEach(row => {
+    const d = new Date(row.played_at);
+    const key = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (key !== monthKey) return;
+    const day = d.getDate();
+    if (!dayData[day]) dayData[day] = 0;
+    dayData[day] += parseInt(row.duration_ms) || 0;
+  });
+
+  // その月の全日数を埋める
+  const [year, month] = monthKey.split('/').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const labels = [], vals = [];
+  for (let i=1; i<=daysInMonth; i++) {
+    labels.push(`${i}日`);
+    vals.push(Math.round((dayData[i]||0)/3600000*10)/10);
+  }
+
+  const [,m] = monthKey.split('/');
+  document.getElementById('month-detail-label').textContent = `${parseInt(m)}月の日別再生時間（クリックで戻る）`;
+  document.getElementById('playtime-summary').textContent = `${parseInt(m)}月合計: ${Math.round(vals.reduce((s,v)=>s+v,0)*10)/10}時間`;
+  document.getElementById('playtime-summary').style.color = 'var(--spotify)';
+
+  drawAreaChart(ctx, canvas, labels, vals, null, true);
+}
+
+function drawAreaChart(ctx, canvas, labels, vals, keys=null, isDetail=false) {
+  const W = canvas.parentElement.offsetWidth || 500;
+  const H = 200;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+
+  if (!labels.length) {
+    ctx.fillStyle = 'var(--text3)';
+    ctx.font = '12px DM Sans';
+    ctx.textAlign = 'center';
+    ctx.fillText('データを蓄積中...', W/2, H/2);
+    return;
+  }
+
+  const pad = { t:16, r:20, b:32, l:8 };
+  const w = W - pad.l - pad.r;
+  const h = H - pad.t - pad.b;
+  const max = Math.max(...vals, 0.1) * 1.2;
+  const n = labels.length;
+  const gx = i => pad.l + (i/(n-1||1)) * w;
+  const gy = v => pad.t + h - (v/max)*h;
+
+  // グリッド
+  for (let i=0; i<=3; i++) {
+    const y = pad.t + (h/3)*i;
+    ctx.beginPath(); ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+    ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
+  }
+
+  if (vals.every(v=>v===0)) {
+    ctx.fillStyle = '#6a6a6a';
+    ctx.font = '11px DM Sans';
+    ctx.textAlign = 'center';
+    ctx.fillText('この期間のデータがありません', W/2, H/2);
+    return;
+  }
+
+  // 塗りつぶしエリア
+  const grad = ctx.createLinearGradient(0, pad.t, 0, H-pad.b);
+  grad.addColorStop(0, 'rgba(29,185,84,0.35)');
+  grad.addColorStop(1, 'rgba(29,185,84,0.02)');
+
+  ctx.beginPath();
+  if (n === 1) {
+    ctx.moveTo(gx(0)-2, gy(vals[0]));
+    ctx.lineTo(gx(0)+2, gy(vals[0]));
+  } else {
+    // スムーズカーブ
+    ctx.moveTo(gx(0), gy(vals[0]));
+    for (let i=1; i<n; i++) {
+      const cpx = (gx(i-1)+gx(i))/2;
+      ctx.bezierCurveTo(cpx, gy(vals[i-1]), cpx, gy(vals[i]), gx(i), gy(vals[i]));
+    }
+  }
+  ctx.lineTo(gx(n-1), H-pad.b);
+  ctx.lineTo(gx(0), H-pad.b);
+  ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+
+  // ライン
+  ctx.beginPath();
+  if (n === 1) {
+    ctx.arc(gx(0), gy(vals[0]), 4, 0, Math.PI*2);
+  } else {
+    ctx.moveTo(gx(0), gy(vals[0]));
+    for (let i=1; i<n; i++) {
+      const cpx = (gx(i-1)+gx(i))/2;
+      ctx.bezierCurveTo(cpx, gy(vals[i-1]), cpx, gy(vals[i]), gx(i), gy(vals[i]));
+    }
+  }
+  ctx.strokeStyle = '#1DB954'; ctx.lineWidth = 2.5; ctx.lineJoin='round'; ctx.stroke();
+
+  // ドット（月間表示時のみクリッカブル）
+  labels.forEach((l,i) => {
+    ctx.beginPath();
+    ctx.arc(gx(i), gy(vals[i]), n > 20 ? 2 : 4, 0, Math.PI*2);
+    ctx.fillStyle = '#1DB954'; ctx.fill();
+    ctx.strokeStyle = '#0a0a0a'; ctx.lineWidth=2; ctx.stroke();
+  });
+
+  // ラベル（間引き）
+  const step = Math.ceil(n/10);
+  ctx.fillStyle='#6a6a6a'; ctx.font='10px DM Sans'; ctx.textAlign='center';
+  labels.forEach((l,i) => {
+    if (i % step === 0 || i === n-1) ctx.fillText(l, gx(i), H-8);
+  });
+
+  // クリックイベント（月間でkeys指定時）
+  if (keys && !isDetail) {
+    canvas.onclick = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+      let closest = 0, minDist = Infinity;
+      labels.forEach((_,i) => {
+        const dist = Math.abs(gx(i) - x);
+        if (dist < minDist) { minDist = dist; closest = i; }
+      });
+      if (minDist < 30 && keys[closest]) showDayDetail(keys[closest]);
+    };
+    canvas.style.cursor = 'pointer';
+  } else if (isDetail) {
+    canvas.onclick = () => {
+      selectedMonth = null;
+      document.getElementById('month-detail-label').textContent = '月をクリックで日別表示';
+      drawMonthlyChart(ctx, canvas);
+    };
+    canvas.style.cursor = 'pointer';
+  } else {
+    canvas.onclick = null;
+    canvas.style.cursor = 'default';
+  }
 }
 
 function renderGenreBars(gc) {
@@ -641,165 +909,11 @@ function renderPie(gc) {
   ).join('');
 }
 
-async function loadAndSaveHistory() {
-  try {
-    // Spotifyから最新50曲取得
-    const d = await api('/me/player/recently-played?limit=50');
-    if (d?.items) await savePlayHistory(d.items);
-    // Supabaseから全履歴取得してグラフ描画
-    const history = await getPlayHistory();
-    drawPlaytimeFromHistory(history);
-  } catch(e) { console.error('history error:', e); }
-}
-
-function drawPlaytimeFromHistory(history) {
-  const canvas = document.getElementById('playtime-chart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  // 月別集計
-  const monthData = {};
-  history.forEach(row => {
-    const d = new Date(row.played_at);
-    const key = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
-    const label = `${d.getMonth()+1}月`;
-    if (!monthData[key]) monthData[key] = { label, ms: 0 };
-    monthData[key].ms += row.duration_ms || 0;
-  });
-
-  const sorted = Object.entries(monthData).sort((a,b)=>a[0].localeCompare(b[0]));
-  const labels = sorted.map(([,v])=>v.label);
-  const vals = sorted.map(([,v])=>Math.round(v.ms/3600000*10)/10);
-
-  if (labels.length === 0) {
-    // データなし
-    labels.push('データなし');
-    vals.push(0);
-  }
-
-  // 先月比
-  if (vals.length >= 2) {
-    const cur = vals[vals.length-1];
-    const prev = vals[vals.length-2];
-    const diff = Math.round((cur-prev)*10)/10;
-    const sign = diff >= 0 ? '+' : '';
-    const msg = `先月より ${sign}${diff}時間`;
-    const color = diff >= 0 ? '#1DB954' : '#FF6B6B';
-    let el = document.getElementById('playtime-summary');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'playtime-summary';
-      el.style.cssText = 'font-size:13px;font-weight:600;margin-bottom:8px;';
-      canvas.parentElement.insertBefore(el, canvas);
-    }
-    el.style.color = color;
-    el.textContent = msg;
-  }
-
-  drawChart(ctx, canvas, labels, vals);
-}
-
-async function loadPlaytimeChart() {
-  // Supabase連携前のフォールバック
-  const canvas = document.getElementById('playtime-chart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  try {
-    const d = await api('/me/player/recently-played?limit=50');
-    const mc = {};
-    d.items.forEach(item => {
-      const m = new Date(item.played_at).toLocaleDateString('ja',{month:'short'});
-      mc[m] = (mc[m]||0) + item.track.duration_ms/3600000;
-    });
-    const labels = Object.keys(mc);
-    const vals = labels.map(l=>Math.round(mc[l]*10)/10);
-    drawChart(ctx, canvas, labels, vals);
-  } catch(e) {
-    drawChart(ctx, canvas, ['1月','2月','3月','4月','5月','6月'],[8,15,12,20,17,23]);
-  }
-}
-
-function drawChart(ctx,canvas,labels,vals) {
-  const W=canvas.parentElement.offsetWidth||400, H=160;
-  canvas.width=W; canvas.height=H;
-  ctx.clearRect(0,0,W,H);
-  const pad={t:10,r:20,b:28,l:36};
-  const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
-  const max=Math.max(...vals)*1.2||1;
-  const gx=i=>pad.l+(i/(labels.length-1||1))*w;
-  const gy=v=>pad.t+h-(v/max)*h;
-
-  for(let i=0;i<=3;i++){
-    const y=pad.t+(h/3)*i;
-    ctx.beginPath(); ctx.strokeStyle='#1e1e1e'; ctx.lineWidth=1;
-    ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
-  }
-
-  if(chartType==='bar'){
-    const bw=w/labels.length*0.55;
-    labels.forEach((_,i)=>{
-      const x=gx(i)-bw/2, y=gy(vals[i]);
-      const grad=ctx.createLinearGradient(0,y,0,H-pad.b);
-      grad.addColorStop(0,'#1DB954'); grad.addColorStop(1,'rgba(29,185,84,0.1)');
-      ctx.fillStyle=grad; ctx.fillRect(x,y,bw,H-pad.b-y);
-    });
-  } else {
-    const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
-    grad.addColorStop(0,'rgba(29,185,84,0.25)'); grad.addColorStop(1,'rgba(29,185,84,0)');
-    ctx.beginPath();
-    labels.forEach((_,i)=>i===0?ctx.moveTo(gx(i),gy(vals[i])):ctx.lineTo(gx(i),gy(vals[i])));
-    ctx.lineTo(gx(labels.length-1),H-pad.b); ctx.lineTo(gx(0),H-pad.b); ctx.closePath();
-    ctx.fillStyle=grad; ctx.fill();
-    ctx.beginPath();
-    labels.forEach((_,i)=>i===0?ctx.moveTo(gx(i),gy(vals[i])):ctx.lineTo(gx(i),gy(vals[i])));
-    ctx.strokeStyle='#1DB954'; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.stroke();
-    labels.forEach((_,i)=>{
-      ctx.beginPath(); ctx.arc(gx(i),gy(vals[i]),4,0,Math.PI*2);
-      ctx.fillStyle='#1DB954'; ctx.fill();
-      ctx.strokeStyle='#0a0a0a'; ctx.lineWidth=2; ctx.stroke();
-    });
-  }
-  ctx.fillStyle='#6a6a6a'; ctx.font='10px DM Sans'; ctx.textAlign='center';
-  labels.forEach((l,i)=>ctx.fillText(l,gx(i),H-6));
-}
-
-async function loadGenreChange() {
-  const canvas=document.getElementById('genre-change-chart');
-  const ctx=canvas.getContext('2d');
-  try {
-    const [cur,prev]=await Promise.all([api('/me/top/artists?limit=20&time_range=short_term'),api('/me/top/artists?limit=20&time_range=medium_term')]);
-    const cg=(items)=>{ const gc={}; items.forEach(a=>a.genres.slice(0,2).forEach(g=>{gc[g]=(gc[g]||0)+1;})); return gc; };
-    const cGc=cg(cur.items), pGc=cg(prev.items);
-    const genres=[...new Set([...Object.keys(cGc),...Object.keys(pGc)])].slice(0,5);
-    const W=canvas.parentElement.offsetWidth||400, H=160;
-    canvas.width=W; canvas.height=H; ctx.clearRect(0,0,W,H);
-    const pad={t:10,r:20,b:28,l:36};
-    const w=W-pad.l-pad.r, h=H-pad.t-pad.b;
-    const maxV=Math.max(...genres.flatMap(g=>[cGc[g]||0,pGc[g]||0]))*1.3||1;
-    const slotW=w/genres.length, bw=slotW*0.28;
-    genres.forEach((g,i)=>{
-      const x=pad.l+slotW*i+slotW*0.1;
-      const cH=((cGc[g]||0)/maxV)*h, pH=((pGc[g]||0)/maxV)*h;
-      ctx.fillStyle='rgba(29,185,84,0.85)'; ctx.fillRect(x,pad.t+h-cH,bw,cH);
-      ctx.fillStyle='rgba(45,142,255,0.85)'; ctx.fillRect(x+bw+2,pad.t+h-pH,bw,pH);
-      ctx.fillStyle='#6a6a6a'; ctx.font='9px DM Sans'; ctx.textAlign='center';
-      ctx.fillText(g.length>7?g.slice(0,7)+'…':g, x+bw, H-6);
-    });
-  } catch(e) {}
-}
-
 function switchRankTab(tab,btn) {
   document.querySelectorAll('.rank-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.rank-content').forEach(c=>c.classList.remove('active'));
   document.getElementById('rank-'+tab).classList.add('active');
-}
-
-function switchChartType(type) {
-  chartType=type;
-  document.getElementById('btn-bar').classList.toggle('active',type==='bar');
-  document.getElementById('btn-line').classList.toggle('active',type==='line');
-  loadPlaytimeChart();
 }
 
 async function setTimeRange(range,btn) {
