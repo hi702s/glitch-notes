@@ -661,38 +661,43 @@ async function loadAndSaveHistory() {
 
 function renderMonthlySummary() {
   const el = document.getElementById('monthly-summary');
-  if (!el || !allHistory.length) { 
+  if (!el || !allHistory.length) {
     if (el) el.innerHTML = '<div style="font-size:12px;color:var(--text3)">データを蓄積中...</div>';
-    return; 
+    return;
   }
   const now = new Date();
-  const thisMonth = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}`;
-  const lastMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
-  const lastMonthKey = `${lastMonth.getFullYear()}/${String(lastMonth.getMonth()+1).padStart(2,'0')}`;
+  const thisYear = now.getFullYear();
+  const thisMonth = now.getMonth(); // 0-indexed
+  const lastDate = new Date(thisYear, thisMonth - 1, 1);
 
-  const calcMs = key => allHistory
-    .filter(r => r.played_at.startsWith(key))
-    .reduce((s,r) => s + (parseInt(r.duration_ms)||0), 0);
+  const isThisMonth = r => {
+    const d = new Date(r.played_at);
+    return d.getFullYear() === thisYear && d.getMonth() === thisMonth;
+  };
+  const isLastMonth = r => {
+    const d = new Date(r.played_at);
+    return d.getFullYear() === lastDate.getFullYear() && d.getMonth() === lastDate.getMonth();
+  };
 
-  const thisMs = calcMs(thisMonth);
-  const lastMs = calcMs(lastMonthKey);
-  const thisH = Math.round(thisMs/3600000*10)/10;
-  const lastH = Math.round(lastMs/3600000*10)/10;
-  const diff = Math.round((thisH-lastH)*10)/10;
+  const thisItems = allHistory.filter(isThisMonth);
+  const lastItems = allHistory.filter(isLastMonth);
+
+  const calcH = items => Math.round(items.reduce((s,r)=>s+(parseInt(r.duration_ms)||0),0)/3600000*10)/10;
+  const thisH = calcH(thisItems);
+  const lastH = calcH(lastItems);
+  const diff = Math.round((thisH - lastH)*10)/10;
   const sign = diff >= 0 ? '+' : '';
   const diffColor = diff >= 0 ? 'var(--spotify)' : '#FF6B6B';
-
-  const totalTracks = allHistory.filter(r => r.played_at.startsWith(thisMonth)).length;
-  const uniqueArtists = new Set(allHistory.filter(r => r.played_at.startsWith(thisMonth)).map(r => r.artist_name)).size;
+  const uniqueArtists = new Set(thisItems.map(r => r.artist_name?.split(',')[0]?.trim())).size;
 
   el.innerHTML = `
     <div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:4px">今月の再生時間</div>
     <div style="font-size:32px;font-weight:700;letter-spacing:-1px;background:linear-gradient(135deg,var(--spotify),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${thisH}h</div>
-    ${diff !== 0 || lastH > 0 ? `<div style="font-size:13px;font-weight:600;color:${diffColor};margin-top:4px">先月より ${sign}${diff}時間</div>` : ''}
+    ${lastH > 0 ? `<div style="font-size:13px;font-weight:600;color:${diffColor};margin-top:4px">先月より ${sign}${diff}時間</div>` : ''}
     <div style="height:1px;background:var(--border);margin:12px 0"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
-        <div style="font-size:18px;font-weight:700;color:var(--spotify)">${totalTracks}</div>
+        <div style="font-size:18px;font-weight:700;color:var(--spotify)">${thisItems.length}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px">再生曲数</div>
       </div>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
